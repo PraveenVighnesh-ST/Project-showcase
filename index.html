@@ -1,0 +1,125 @@
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Praveen Vighnesh S T — Robotics & Mechatronics</title>
+<meta
+  name="description"
+  content="Portfolio of Praveen Vighnesh S T — mechatronics & robotics engineer. Actuated hardware, ROS 2, CANopen, and product design at the intersection of robotics and electromobility."
+/>
+
+<!-- The ONE 3D dependency: Google's <model-viewer> web component for GLB files.
+     Loaded from a CDN; everything else on this site is dependency-free. -->
+<script
+  type="module"
+  src="https://cdn.jsdelivr.net/npm/@google/model-viewer@3.5.0/dist/model-viewer.min.js"
+></script>
+
+<link rel="stylesheet" href="css/style.css" />
+
+<!-- Interactive silk-cloth background (WebGL, drawn by JS) -->
+<div id="bg" aria-hidden="true">
+  <canvas id="silk"></canvas>
+</div>
+
+<!-- Persistent glass navigation — stays fixed across every page -->
+<header id="nav">
+  <nav class="nav-pills" role="tablist" aria-label="Primary">
+    <button class="pill is-active" data-nav="home" role="tab">Home</button>
+    <button class="pill" data-nav="timeline" role="tab">Timeline</button>
+    <button class="pill" data-nav="about" role="tab">About</button>
+  </nav>
+</header>
+
+<!-- ============================================================= INTRO ==== -->
+<!-- Hero product video plays fullscreen, then shrinks into a square frame. -->
+<div id="intro">
+  <div class="intro-frame">
+    <video
+      id="intro-video"
+      class="intro-video"
+      autoplay
+      muted
+      playsinline
+      preload="auto"
+      poster="assets/img/robotic-arm.svg"
+    >
+      <!-- Swap for your transparent arm render (see README).
+           .webm(VP9-alpha) + .mov(HEVC-alpha) give a background-free product. -->
+      <source src="assets/video/robotic-arm.webm" type="video/webm" />
+      <source src="assets/video/excavator.mp4" type="video/mp4" />
+    </video>
+  </div>
+  <div class="intro-id" id="intro-id">
+    <p class="intro-name">Praveen Vighnesh S T</p>
+    <p class="intro-role">Robotics · Mechatronics · Product Design</p>
+  </div>
+  <button class="intro-skip" id="intro-skip">Skip intro ↓</button>
+</div>
+
+<!-- Persistent, minimal brand the intro identity text settles into (top-left) -->
+<div id="brand" aria-hidden="true">
+  <span class="b-name">Praveen Vighnesh&nbsp;S&nbsp;T</span>
+  <span class="b-role">Robotics · Mechatronics · Product Design</span>
+</div>
+
+<!-- ============================================================== STAGE ==== -->
+<main id="stage">
+  <!-- -------- HOME : curved cockpit carousel ------------------------------ -->
+  <section class="page is-active" id="page-home" data-page="home">
+    <div class="wordmark">I BUILT IT</div>
+
+    <div class="carousel" id="carousel">
+      <div class="carousel-ring" id="carousel-ring"><!-- cards injected here --></div>
+    </div>
+
+    <div class="carousel-meta">
+      <!-- title strip: names slide with the carousel; only prev/current/next
+           are visible, fading in and out (built by main.js) -->
+      <div class="carousel-titles" id="carousel-titles"></div>
+      <p class="carousel-hint">drag · scroll · click a card to open</p>
+    </div>
+  </section>
+
+  <!-- -------- TIMELINE ---------------------------------------------------- -->
+  <section class="page" id="page-timeline" data-page="timeline">
+    <div class="page-inner">
+      <h2 class="page-heading">Timeline</h2>
+      <p class="page-lead">
+        Education &amp; experience, left to right.
+        <span class="tl-hint">— hover any card</span>
+      </p>
+    </div>
+    <div class="timeline-wrap" id="timeline-wrap">
+      <ol class="timeline" id="timeline"><!-- injected --></ol>
+    </div>
+    <!-- custom minimal scrollbar (thumb draggable; glows at the ends) -->
+    <div class="tl-scroll" id="tl-scroll" aria-hidden="true">
+      <div class="tl-thumb" id="tl-thumb"></div>
+    </div>
+  </section>
+
+  <!-- -------- ABOUT ------------------------------------------------------- -->
+  <section class="page" id="page-about" data-page="about">
+    <div class="page-inner">
+      <h2 class="page-heading about-heading">About Praveen</h2>
+      <div id="about"><!-- injected --></div>
+    </div>
+  </section>
+</main>
+
+<!-- ============================================================== MODAL ==== -->
+<!-- Project detail window: floats over the card, blurs the site behind it. -->
+<div id="modal-root" class="modal-root" aria-hidden="true">
+  <div class="modal-backdrop" id="modal-backdrop"></div>
+  <div class="modal-window" id="modal-window" role="dialog" aria-modal="true">
+    <button class="modal-close" id="modal-close" aria-label="Close">&times;</button>
+    <div class="modal-content" id="modal-content"><!-- injected --></div>
+  </div>
+</div>
+
+<!-- Custom minimal scrollbar for the About page (matches the timeline slider) -->
+<div class="side-scroll" id="ab-scroll" aria-hidden="true">
+  <div class="side-thumb" id="ab-thumb"></div>
+</div>
+
+<script src="js/projects.js"></script>
+<script src="js/main.js"></script>
