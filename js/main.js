@@ -165,12 +165,27 @@ function pulseGlow(el) {
   const skip = document.getElementById("intro-skip");
   if (!intro) return;
 
-  let done = false;
+  const SHRINK_LEAD = 3;       // shrink starts this many seconds before the video ends
+  const FALLBACK_DURATION = 6; // guess, only used if the real duration never loads
+  const BG_REVEAL_AT = 4;      // the live site starts fading in at this point in the video
+
+  let done = false, shrunk = false, bgRevealed = false, shrinkTimer = null;
+
+  // Gradually fade the solid black away to reveal the live site (constellation
+  // bg, nav, cards) behind the intro, starting once the video hits BG_REVEAL_AT
+  // -- instead of holding it back until the video fully ends.
+  function revealBg() {
+    if (bgRevealed) return;
+    bgRevealed = true;
+    intro.classList.add("bg-reveal");
+  }
 
   // Shrink the fullscreen video down onto the FRONT card's exact on-screen
-  // position and size, so the product appears to settle into the card.
+  // position and size (and fly the identity text to the corner alongside it),
+  // so the product appears to settle into the card as one coordinated move.
   function shrink() {
-    if (intro.classList.contains("shrunk")) return;
+    if (shrunk) return;
+    shrunk = true;
     const frame = intro.querySelector(".intro-frame");
     const card = document.querySelector(".card.is-front") || document.querySelector(".card");
     if (frame && card) {
@@ -183,12 +198,23 @@ function pulseGlow(el) {
         frame.style.transform = `translate(${dx.toFixed(1)}px, ${dy.toFixed(1)}px)`;
       }
     }
-    intro.classList.add("shrunk");
+    intro.classList.add("shrunk", "to-corner");
+  }
+
+  // Schedule the shrink for the last SHRINK_LEAD seconds of the ACTUAL video
+  // (once its real duration is known), instead of a guessed fixed delay.
+  function scheduleShrink(durationSec) {
+    const d = isFinite(durationSec) && durationSec > 0 ? durationSec : FALLBACK_DURATION;
+    clearTimeout(shrinkTimer);
+    shrinkTimer = setTimeout(shrink, Math.max(0, d - SHRINK_LEAD) * 1000);
   }
 
   function reveal() {
     if (done) return;
     done = true;
+    clearTimeout(maxWait);
+    shrink(); // safety: the video must have visibly landed on the card first
+    revealBg();
     brand && brand.classList.add("show");
     intro.classList.add("gone");
     // tell the carousel the intro is over (it then waits 3s before auto-scroll)
@@ -196,20 +222,31 @@ function pulseGlow(el) {
   }
   function finish() {
     // skip / error: collapse the choreography quickly, then reveal
+    clearTimeout(shrinkTimer);
     shrink();
-    intro.classList.add("to-corner");
     setTimeout(reveal, 450);
   }
 
-  // choreography
-  const t1 = setTimeout(shrink, 2600);                                 // video -> card
-  const t2 = setTimeout(() => intro.classList.add("to-corner"), 4100); // text -> top-left
-  const t3 = setTimeout(reveal, 5300);
+  if (video) {
+    if (video.readyState >= 1 && video.duration) scheduleShrink(video.duration);
+    else video.addEventListener("loadedmetadata", () => scheduleShrink(video.duration), { once: true });
+    video.addEventListener("timeupdate", () => {
+      if (video.currentTime >= BG_REVEAL_AT) revealBg();
+    });
+    // only swap over to the live card once the video has actually finished
+    video.addEventListener("ended", reveal);
+    video.addEventListener("error", finish);
+  } else {
+    scheduleShrink(FALLBACK_DURATION);
+  }
 
-  video && video.addEventListener("error", () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); finish(); });
+  // safety net in case metadata/ended never fire (e.g. autoplay blocked)
+  const maxWait = setTimeout(finish, 9000);
+
   skip &&
     skip.addEventListener("click", () => {
-      clearTimeout(t1); clearTimeout(t2); clearTimeout(t3);
+      clearTimeout(shrinkTimer);
+      clearTimeout(maxWait);
       finish();
     });
 })();
@@ -371,12 +408,12 @@ function pulseGlow(el) {
     card.dataset.index = i;
     card.innerHTML = `
       <div class="card-media">
-        <img src="${p.poster}" alt="${p.title}" draggable="false" />
         ${p.video ? `<video muted loop playsinline preload="metadata">${videoSourceTags(p.video)}</video>` : ""}
+        <img src="${p.poster}" alt="${p.title}" draggable="false" />
       </div>
       <div class="card-ring-accent"></div>`;
     ring.appendChild(card);
-    cards.push({ el: card, video: card.querySelector("video") });
+    cards.push({ el: card, video: card.querySelector("video"), poster: card.querySelector("img") });
   });
 
   // title strip — one label per project
@@ -414,7 +451,7 @@ function pulseGlow(el) {
   function render() {
     const moving = dragging || tweening;
     let bestI = 0, best = Infinity;
-    cards.forEach(({ el, video }, i) => {
+    cards.forEach(({ el, video, poster }, i) => {
       const o = offsetOf(i);
       const dist = Math.abs(o);
       const theta = (o * STEP * Math.PI) / 180;
@@ -422,15 +459,18 @@ function pulseGlow(el) {
       const z = (Math.cos(theta) - 1) * RADIUS;
       el.style.transform =
         `translate3d(${x}px,0,${z}px) rotateY(${(-o * STEP * 0.9).toFixed(2)}deg) scale(${(1 - dist * 0.06).toFixed(3)})`;
-      el.style.opacity = (dist > 2.9 ? 0 : 1 - Math.min(dist / 3.4, 0.72)).toFixed(3);
+      // fully opaque out to the culling distance (no more see-through cards
+      // letting the next one bleed through) -- dim with brightness instead
+      el.style.opacity = dist > 2.9 ? "0" : "1";
+      el.style.filter = `brightness(${Math.max(0.5, 1 - dist * 0.25).toFixed(3)})`;
       el.style.zIndex = String(1000 - Math.round(dist * 100));
       el.style.pointerEvents = dist > 1.6 ? "none" : "auto";
       el.classList.remove("is-front");
       if (video) {
         if (dist < 2.4) {
-          if (dist < 0.25 && !moving) { video.pause(); video.style.opacity = "0"; }
-          else { if (video.paused) video.play().catch(() => {}); video.style.opacity = "1"; }
-        } else { video.pause(); video.style.opacity = "0"; }
+          if (dist < 0.25 && !moving) { video.pause(); if (poster) poster.style.opacity = "1"; }
+          else { if (video.paused) video.play().catch(() => {}); if (poster) poster.style.opacity = "0"; }
+        } else { video.pause(); if (poster) poster.style.opacity = "1"; }
       }
       if (dist < best) { best = dist; bestI = i; }
     });
