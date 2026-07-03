@@ -20,8 +20,10 @@ const PROJECTS = [
     category: "Robotics / Mechatronics",
     year: "2026",
     accent: "#4da3ff",
-    poster: "assets/img/robotic-arm.svg",
-    video: "assets/video/excavator.mp4", // placeholder — swap for arm render
+    poster: "assets/img/robotic-arm.png",
+    // Real alpha render (VP9/WebM, transparent) tried first; excavator.mp4 is
+    // a placeholder fallback for the rare browser that can't decode VP9 alpha.
+    video: ["assets/video/robot.webm", "assets/video/excavator.mp4"],
     model: "assets/models/robotic-arm.glb", // drop your GLB here to enable 3D viewer
     hero:
       "A ground-up 7-DOF robotic system with a 10 kg payload, engineered for " +

@@ -42,21 +42,32 @@ Drop your file into `assets/img/` (or `assets/video/`) and update the `poster`
 `poster` on mouse-out; set it to `null` if there's no video yet.
 
 ### 2. The intro / hero video (background-free product)
-The intro plays a video fullscreen, then shrinks it into a square frame.
+The intro plays a video fullscreen, then shrinks it onto the front card.
+`assets/video/robot.webm` is the current real render (VP9 with alpha, CRF 30,
+encoded from a DaVinci Resolve TIFF-sequence export at 24fps) — this is what
+both the intro and the "7-DOF Robotic Arm" card use today.
 
-To make the product float with **no background box**, export a video **with an
-alpha (transparency) channel**:
+To re-export or replace it with a newer render, you need an **alpha
+(transparency) channel**:
 
-1. In Fusion 360 / Blender, render the animation with a **transparent background**
-   (no environment, no floor shadow catcher) as a **PNG image sequence**.
+1. In Fusion 360 / Blender / DaVinci Resolve, render the animation with a
+   **transparent background** (no environment, no floor shadow catcher) as a
+   **PNG or TIFF image sequence**.
 2. Encode it to the two web formats that support transparency:
-   - **`robotic-arm.webm`** — VP9 with alpha (Chrome, Edge, Firefox)
-     `ffmpeg -i frame_%04d.png -c:v libvpx-vp9 -pix_fmt yuva420p robotic-arm.webm`
-   - **`robotic-arm.mov`** — HEVC with alpha (Safari)
-     `ffmpeg -i frame_%04d.png -c:v hevc_videotoolbox -alpha_quality 0.9 -tag:v hvc1 robotic-arm.mov`
-3. Put them in `assets/video/`. A plain `.mp4` **cannot** hold transparency — that's
-   the usual gotcha. The intro already lists `robotic-arm.webm` first and falls back
-   to the excavator clip, so it works today and upgrades the moment you add the file.
+   - **`robot.webm`** — VP9 with alpha (Chrome, Edge, Firefox)
+     `ffmpeg -framerate 24 -i frame_%04d.png -c:v libvpx-vp9 -pix_fmt yuva420p -crf 30 -b:v 0 robot.webm`
+   - **`robot.mov`** — HEVC with alpha (Safari) — optional, add as a third
+     `<source>` in `index.html`'s intro and in `projects.js`'s `video` array
+     `ffmpeg -framerate 24 -i frame_%04d.png -c:v hevc_videotoolbox -alpha_quality 0.9 -tag:v hvc1 robot.mov`
+3. Put the file in `assets/video/`, keeping the name `robot.webm` (or update
+   both references — the intro `<source>` in `index.html` and the
+   `robotic-arm` entry's `video:` array in `projects.js`). A plain `.mp4`
+   **cannot** hold transparency — that's the usual gotcha.
+4. **Verifying alpha with ffmpeg's own CLI is misleading**: its default `vp9`
+   decoder doesn't expose the WebM alpha side-channel, so `ffprobe`/`ffplay`
+   can *look* opaque even when the file is correct. Force the real decoder to
+   check: `ffmpeg -c:v libvpx-vp9 -i robot.webm -vframes 1 out.png`. Browsers
+   always decode it correctly regardless of this CLI quirk.
 
 ### 3. The 3D viewer (GLB)
 Convert your STEP/Fusion model to **`.glb`** and place it in `assets/models/`

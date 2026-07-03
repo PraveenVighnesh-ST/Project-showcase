@@ -7,6 +7,21 @@
 
 const PALETTE = ["#4da3ff", "#37d6a7", "#ff8a5b", "#c07bff", "#ffd24d", "#5fb0d8"];
 
+// Video field can be one path (string) or several, tried in order (array) —
+// e.g. an alpha .webm first, with an opaque .mp4 fallback for browsers that
+// can't decode it. Renders <source> tags so the <video> picks what it can play.
+const VIDEO_MIME = { webm: "video/webm", mp4: "video/mp4", mov: "video/quicktime" };
+function videoSourceTags(video) {
+  if (!video) return "";
+  const list = Array.isArray(video) ? video : [video];
+  return list
+    .map((src) => {
+      const ext = src.split(".").pop().toLowerCase();
+      return `<source src="${src}" type="${VIDEO_MIME[ext] || ""}" />`;
+    })
+    .join("");
+}
+
 /* Shared journey state — the whole site is one continuous scroll:
    Home cards -> Timeline -> About (and back). Populated by the modules below. */
 const App = {};
@@ -236,11 +251,34 @@ function pulseGlow(el) {
       App.setCard(opts.card != null ? opts.card : (App.getCard ? App.getCard() : 0));
     } else if (name === "timeline" && App.tlWrap) {
       App.tlWrap.scrollLeft = opts.end ? App.tlWrap.scrollWidth - App.tlWrap.clientWidth : 0;
+      App.tlTarget = App.tlWrap.scrollLeft; // keep the smooth-scroll target in sync
     } else if (name === "about" && App.aboutPage) {
       App.aboutPage.scrollTop = opts.end ? App.aboutPage.scrollHeight - App.aboutPage.clientHeight : 0;
+      App.abTarget = App.aboutPage.scrollTop;
     }
   }
   App.goSection = goSection;
+  App.tlTarget = 0;
+  App.abTarget = 0;
+
+  // Smooth-scroll easing loop: the wheel sets a target; the actual scroll glides
+  // toward it each frame (instead of jumping per wheel tick -> no jank).
+  (function scrollEase() {
+    if (currentSection === "timeline" && App.tlWrap) {
+      const w = App.tlWrap;
+      App.tlTarget = Math.max(0, Math.min(w.scrollWidth - w.clientWidth, App.tlTarget));
+      const d = App.tlTarget - w.scrollLeft;
+      if (Math.abs(d) > 0.5) w.scrollLeft += d * 0.16;
+      else if (d !== 0) w.scrollLeft = App.tlTarget;
+    } else if (currentSection === "about" && App.aboutPage) {
+      const p = App.aboutPage;
+      App.abTarget = Math.max(0, Math.min(p.scrollHeight - p.clientHeight, App.abTarget));
+      const d = App.abTarget - p.scrollTop;
+      if (Math.abs(d) > 0.5) p.scrollTop += d * 0.16;
+      else if (d !== 0) p.scrollTop = App.abTarget;
+    }
+    requestAnimationFrame(scrollEase);
+  })();
 
   document.querySelectorAll("[data-nav]").forEach((btn) =>
     btn.addEventListener("click", () =>
@@ -260,7 +298,8 @@ function pulseGlow(el) {
       if (!ready || document.body.classList.contains("modal-open")) return;
       const now = performance.now();
       if (now < sectionLockUntil) { e.preventDefault(); return; }
-      const dy = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+      let dy = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+      if (e.deltaMode === 1) dy *= 16; // line-based wheels -> approx pixels
 
       if (currentSection === "home") {
         e.preventDefault();
@@ -277,20 +316,17 @@ function pulseGlow(el) {
         const wrap = App.tlWrap;
         if (!wrap) return;
         const max = wrap.scrollWidth - wrap.clientWidth;
-        if (dy > 0 && wrap.scrollLeft >= max - 1) goSection("about", { end: false });
-        else if (dy < 0 && wrap.scrollLeft <= 1) goSection("home", { card: App.cardCount ? App.cardCount - 1 : 0 });
-        else wrap.scrollLeft += dy;            // vertical wheel -> horizontal scroll
+        // hand off to the next/prev section only once the TARGET is at an edge
+        if (dy > 0 && App.tlTarget >= max - 1) goSection("about", { end: false });
+        else if (dy < 0 && App.tlTarget <= 1) goSection("home", { card: App.cardCount ? App.cardCount - 1 : 0 });
+        else App.tlTarget = Math.max(0, Math.min(max, App.tlTarget + dy)); // glide (see scrollEase)
       } else if (currentSection === "about") {
+        e.preventDefault();
         const page = App.aboutPage;
         if (!page) return;
         const maxA = page.scrollHeight - page.clientHeight;
-        if (dy < 0 && page.scrollTop <= 1) {
-          e.preventDefault();
-          goSection("timeline", { end: true });
-        } else if (maxA > 1) {
-          e.preventDefault();
-          page.scrollTop += dy; // browser clamps at the bottom -> site simply ends there
-        }
+        if (dy < 0 && App.abTarget <= 1) goSection("timeline", { end: true });
+        else App.abTarget = Math.max(0, Math.min(maxA, App.abTarget + dy)); // glide
       }
     },
     { passive: false }
@@ -336,7 +372,7 @@ function pulseGlow(el) {
     card.innerHTML = `
       <div class="card-media">
         <img src="${p.poster}" alt="${p.title}" draggable="false" />
-        ${p.video ? `<video src="${p.video}" muted loop playsinline preload="metadata"></video>` : ""}
+        ${p.video ? `<video muted loop playsinline preload="metadata">${videoSourceTags(p.video)}</video>` : ""}
       </div>
       <div class="card-ring-accent"></div>`;
     ring.appendChild(card);
@@ -663,6 +699,7 @@ const ICONS = {
     if (!dragging) return;
     const denom = track.clientWidth - thumb.clientWidth;
     if (denom > 0) wrap.scrollLeft = startScroll + ((e.clientX - startX) / denom) * maxScroll();
+    App.tlTarget = wrap.scrollLeft; // keep smooth-scroll target in sync with the drag
     update();
   });
   const stop = () => (dragging = false);
@@ -674,6 +711,7 @@ const ICONS = {
     if (e.target === thumb) return;
     const rect = track.getBoundingClientRect();
     wrap.scrollLeft = ((e.clientX - rect.left) / rect.width) * maxScroll();
+    App.tlTarget = wrap.scrollLeft;
     update();
   });
 
@@ -719,6 +757,7 @@ const ICONS = {
     if (!dragging) return;
     const denom = track.clientHeight - thumb.clientHeight;
     if (denom > 0) page.scrollTop = startTop + ((e.clientY - startY) / denom) * maxScroll();
+    App.abTarget = page.scrollTop; // keep smooth-scroll target in sync with the drag
     update();
   });
   const stop = () => (dragging = false);
@@ -729,6 +768,7 @@ const ICONS = {
     if (e.target === thumb) return;
     const rect = track.getBoundingClientRect();
     page.scrollTop = ((e.clientY - rect.top) / rect.height) * maxScroll();
+    App.abTarget = page.scrollTop;
     update();
   });
 
