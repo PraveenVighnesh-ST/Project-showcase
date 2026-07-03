@@ -67,15 +67,16 @@
   <section class="page is-active" id="page-home" data-page="home">
     <div class="wordmark">I BUILT IT</div>
 
-    <div class="carousel" id="carousel">
-      <div class="carousel-ring" id="carousel-ring"><!-- cards injected here --></div>
+    <!-- title strip sits above the cards, like the heading on every other
+         section: names slide with the carousel; only prev/current/next
+         are visible, fading in and out (built by main.js) -->
+    <div class="carousel-meta">
+      <div class="carousel-titles" id="carousel-titles"></div>
+      <p class="carousel-hint">click a card to open</p>
     </div>
 
-    <div class="carousel-meta">
-      <!-- title strip: names slide with the carousel; only prev/current/next
-           are visible, fading in and out (built by main.js) -->
-      <div class="carousel-titles" id="carousel-titles"></div>
-      <p class="carousel-hint">drag · scroll · click a card to open</p>
+    <div class="carousel" id="carousel">
+      <div class="carousel-ring" id="carousel-ring"><!-- cards injected here --></div>
     </div>
   </section>
 

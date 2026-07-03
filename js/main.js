@@ -7,6 +7,13 @@
 
 const PALETTE = ["#4da3ff", "#37d6a7", "#ff8a5b", "#c07bff", "#ffd24d", "#5fb0d8"];
 
+/* Shared journey state — the whole site is one continuous scroll:
+   Home cards -> Timeline -> About (and back). Populated by the modules below. */
+const App = {};
+let currentSection = "home";
+let ready = false;          // scroll journey activates after the intro
+let sectionLockUntil = 0;   // ignore wheel briefly during a section slide
+
 // One-shot glow pulse for a scrollbar thumb when it hits an edge (fades out).
 function pulseGlow(el) {
   if (!el.animate) return;
@@ -144,6 +151,26 @@ function pulseGlow(el) {
   if (!intro) return;
 
   let done = false;
+
+  // Shrink the fullscreen video down onto the FRONT card's exact on-screen
+  // position and size, so the product appears to settle into the card.
+  function shrink() {
+    if (intro.classList.contains("shrunk")) return;
+    const frame = intro.querySelector(".intro-frame");
+    const card = document.querySelector(".card.is-front") || document.querySelector(".card");
+    if (frame && card) {
+      const r = card.getBoundingClientRect();
+      if (r.width > 0) {
+        frame.style.width = r.width + "px";
+        frame.style.height = r.height + "px";
+        const dx = r.left + r.width / 2 - window.innerWidth / 2;
+        const dy = r.top + r.height / 2 - window.innerHeight / 2;
+        frame.style.transform = `translate(${dx.toFixed(1)}px, ${dy.toFixed(1)}px)`;
+      }
+    }
+    intro.classList.add("shrunk");
+  }
+
   function reveal() {
     if (done) return;
     done = true;
@@ -154,12 +181,13 @@ function pulseGlow(el) {
   }
   function finish() {
     // skip / error: collapse the choreography quickly, then reveal
-    intro.classList.add("shrunk", "to-corner");
+    shrink();
+    intro.classList.add("to-corner");
     setTimeout(reveal, 450);
   }
 
   // choreography
-  const t1 = setTimeout(() => intro.classList.add("shrunk"), 2600);    // video -> card
+  const t1 = setTimeout(shrink, 2600);                                 // video -> card
   const t2 = setTimeout(() => intro.classList.add("to-corner"), 4100); // text -> top-left
   const t3 = setTimeout(reveal, 5300);
 
@@ -179,27 +207,94 @@ function pulseGlow(el) {
     timeline: document.getElementById("page-timeline"),
     about: document.getElementById("page-about"),
   };
-  let current = "home";
   document.body.dataset.page = "home";
-  function go(name) {
-    if (!pages[name] || name === current) return;
+
+  function applyTransition(name) {
     const ti = order.indexOf(name);
     order.forEach((key) => {
       const el = pages[key];
+      if (!el) return;
       const i = order.indexOf(key);
       el.classList.remove("is-active", "is-exit-up");
       if (key === name) el.classList.add("is-active");
-      else if (i < ti) el.classList.add("is-exit-up");
+      else if (i < ti) el.classList.add("is-exit-up"); // earlier sections slide up
     });
     document
       .querySelectorAll(".pill")
       .forEach((p) => p.classList.toggle("is-active", p.dataset.nav === name));
     document.body.dataset.page = name;
-    current = name;
   }
-  document
-    .querySelectorAll("[data-nav]")
-    .forEach((btn) => btn.addEventListener("click", () => go(btn.dataset.nav)));
+
+  // Change section and place the viewer at that section's start (or end).
+  function goSection(name, opts) {
+    if (!pages[name] || name === currentSection) return;
+    opts = opts || {};
+    applyTransition(name);
+    currentSection = name;
+    sectionLockUntil = performance.now() + 750; // block wheel during the slide
+    if (name === "home" && App.setCard) {
+      App.setCard(opts.card != null ? opts.card : (App.getCard ? App.getCard() : 0));
+    } else if (name === "timeline" && App.tlWrap) {
+      App.tlWrap.scrollLeft = opts.end ? App.tlWrap.scrollWidth - App.tlWrap.clientWidth : 0;
+    } else if (name === "about" && App.aboutPage) {
+      App.aboutPage.scrollTop = opts.end ? App.aboutPage.scrollHeight - App.aboutPage.clientHeight : 0;
+    }
+  }
+  App.goSection = goSection;
+
+  document.querySelectorAll("[data-nav]").forEach((btn) =>
+    btn.addEventListener("click", () =>
+      goSection(btn.dataset.nav, btn.dataset.nav === "home" ? { card: 0 } : {})
+    )
+  );
+
+  // the scroll journey turns on once the intro is gone
+  window.addEventListener("intro:done", () => { ready = true; });
+  setTimeout(() => { ready = true; }, 8000); // fallback
+
+  /* ---- Global wheel handler: one continuous scroll through the whole site */
+  let hAccum = 0, hLock = 0;
+  window.addEventListener(
+    "wheel",
+    (e) => {
+      if (!ready || document.body.classList.contains("modal-open")) return;
+      const now = performance.now();
+      if (now < sectionLockUntil) { e.preventDefault(); return; }
+      const dy = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+
+      if (currentSection === "home") {
+        e.preventDefault();
+        hAccum += dy;
+        if (Math.abs(hAccum) > 50 && now > hLock) {
+          const dir = hAccum > 0 ? 1 : -1;
+          hAccum = 0; hLock = now + 120;
+          const moved = App.stepCard ? App.stepCard(dir) : false;
+          // past the last card -> Timeline; before the first -> stay (top of site)
+          if (!moved && dir > 0) goSection("timeline", { end: false });
+        }
+      } else if (currentSection === "timeline") {
+        e.preventDefault();
+        const wrap = App.tlWrap;
+        if (!wrap) return;
+        const max = wrap.scrollWidth - wrap.clientWidth;
+        if (dy > 0 && wrap.scrollLeft >= max - 1) goSection("about", { end: false });
+        else if (dy < 0 && wrap.scrollLeft <= 1) goSection("home", { card: App.cardCount ? App.cardCount - 1 : 0 });
+        else wrap.scrollLeft += dy;            // vertical wheel -> horizontal scroll
+      } else if (currentSection === "about") {
+        const page = App.aboutPage;
+        if (!page) return;
+        const maxA = page.scrollHeight - page.clientHeight;
+        if (dy < 0 && page.scrollTop <= 1) {
+          e.preventDefault();
+          goSection("timeline", { end: true });
+        } else if (maxA > 1) {
+          e.preventDefault();
+          page.scrollTop += dy; // browser clamps at the bottom -> site simply ends there
+        }
+      }
+    },
+    { passive: false }
+  );
 })();
 
 /* ---- 4. Snap carousel (smooth, one-card-per-scroll) --------------------- */
@@ -220,11 +315,13 @@ function pulseGlow(el) {
   let autoAt = Infinity;          // auto-scroll disabled until 3s after intro
   let dwellStart = 0;
   let lastX = 0, moved = 0, pressedIndex = null, frontIndex = -1;
-  let wheelAccum = 0, wheelLock = 0;
   const cards = [];
 
   const easeInOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
-  function tweenTo(to, dur) { tFrom = angle; tTo = to; tStart = performance.now(); tDur = dur; tweening = true; }
+  function tweenTo(to, dur) {
+    to = Math.max(0, Math.min(N - 1, to));  // non-looping: clamp to the real card range
+    tFrom = angle; tTo = to; tStart = performance.now(); tDur = dur; tweening = true;
+  }
 
   // start auto-scroll only 3s after the intro finishes
   window.addEventListener("intro:done", () => { autoAt = performance.now() + 3000; });
@@ -261,27 +358,22 @@ function pulseGlow(el) {
   // Measure widths so adjacent titles sit edge-to-edge (a fixed px gap would
   // overlap the wide names). spacing[i] = centre-to-centre distance i -> i+1.
   const GAP = 64;
-  let spacing = [], cumulative = [], totalLen = 0;
+  let spacing = [], cumulative = [];
   function measureTitles() {
-    if (!titles.length) return;
+    if (titles.length < 2) return;
     const w = titles.map((t) => t.offsetWidth);
-    spacing = titles.map((_, i) => w[i] / 2 + w[(i + 1) % N] / 2 + GAP);
-    cumulative = [];
-    let acc = 0;
-    for (let i = 0; i < N; i++) { cumulative[i] = acc; acc += spacing[i]; }
-    totalLen = acc;
+    spacing = [];
+    for (let i = 0; i < N - 1; i++) spacing[i] = w[i] / 2 + w[i + 1] / 2 + GAP;
+    cumulative = [0];
+    for (let i = 1; i < N; i++) cumulative[i] = cumulative[i - 1] + spacing[i - 1];
   }
   requestAnimationFrame(measureTitles);
   window.addEventListener("resize", measureTitles);
   window.addEventListener("load", measureTitles);
   setTimeout(measureTitles, 600);
 
-  const offsetOf = (i) => {
-    let o = i - angle;
-    while (o > N / 2) o -= N;
-    while (o <= -N / 2) o += N;
-    return o;
-  };
+  // linear (non-looping): first card centred, the rest fan out to the right
+  const offsetOf = (i) => i - angle;
 
   function render() {
     const moving = dragging || tweening;
@@ -311,21 +403,15 @@ function pulseGlow(el) {
 
     // titles: edge-to-edge spacing (px, from measured widths) so they never
     // overlap; opacity is index-based so neighbours are HIDDEN at rest and
-    // only appear as they move through a transition
-    if (titles.length && totalLen > 0) {
-      const a = ((angle % N) + N) % N;
-      const k = Math.floor(a);
-      const frac = a - k;
-      const viewCenter = cumulative[k] + frac * spacing[k];
+    // only appear as they move through a transition (linear, non-looping)
+    if (titles.length && cumulative.length === N) {
+      const a = Math.max(0, Math.min(N - 1, angle));
+      const k = Math.max(0, Math.min(N - 2, Math.floor(a)));
+      const viewCenter = cumulative[k] + (a - k) * spacing[k];
       titles.forEach((t, i) => {
-        let x = cumulative[i] - viewCenter;   // px position along the strip
-        while (x > totalLen / 2) x -= totalLen;
-        while (x <= -totalLen / 2) x += totalLen;
-        let o = i - angle;                    // index offset -> visibility
-        while (o > N / 2) o -= N;
-        while (o <= -N / 2) o += N;
+        const x = cumulative[i] - viewCenter;       // px position along the strip
         t.style.transform = `translate(-50%, -50%) translateX(${x.toFixed(1)}px)`;
-        t.style.opacity = Math.max(0, 1 - Math.abs(o)).toFixed(3); // 0 at rest for neighbours
+        t.style.opacity = Math.max(0, 1 - Math.abs(i - angle)).toFixed(3);
       });
     }
   }
@@ -345,7 +431,7 @@ function pulseGlow(el) {
       if (t >= 1) { angle = tTo; goal = tTo; tweening = false; dwellStart = now; }
     } else {
       angle = goal;                                    // resting on a card
-      if (now >= autoAt) {
+      if (now >= autoAt && goal < N - 1) {              // stop drifting at the last card
         if (!dwellStart) dwellStart = now;
         if (now - dwellStart >= 1500) tweenTo(goal + 1, 850); // hold 1.5s, then glide
       } else dwellStart = 0;
@@ -374,7 +460,7 @@ function pulseGlow(el) {
     lastX = e.clientX;
     moved += Math.abs(dx);
     const da = -dx / 220;
-    angle += da;
+    angle = Math.max(0, Math.min(N - 1, angle + da)); // non-looping: clamp while dragging
     vel = Math.max(-0.05, Math.min(0.05, da));
   });
   function release() {
@@ -389,25 +475,25 @@ function pulseGlow(el) {
   stage.addEventListener("pointerup", release);
   stage.addEventListener("pointercancel", release);
 
-  // wheel / trackpad -> glide exactly one card toward the scroll direction
-  stage.addEventListener(
-    "wheel",
-    (e) => {
-      const d = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
-      const now = performance.now();
-      wheelAccum += d;
-      if (Math.abs(wheelAccum) > 24 && now > wheelLock) {
-        const base = tweening ? tTo : goal;          // chain notches smoothly
-        tweenTo(base + (wheelAccum > 0 ? 1 : -1), 480);
-        wheelAccum = 0;
-        wheelLock = now + 160;
-      }
-      autoAt = now + 2000;
-      dwellStart = 0;
-      e.preventDefault();
-    },
-    { passive: false }
-  );
+  // Wheel is handled globally (see the navigation module) so scrolling can
+  // hand off from the last card to the Timeline section, and back again.
+  App.stepCard = function (dir) {
+    const base = tweening ? tTo : goal;
+    const next = base + dir;
+    if (next < 0 || next > N - 1) return false; // at an edge -> let the journey move on
+    tweenTo(next, 480);
+    autoAt = performance.now() + 2000;
+    dwellStart = 0;
+    return true;
+  };
+  App.setCard = function (i) {
+    goal = angle = Math.max(0, Math.min(N - 1, i));
+    tweening = false;
+    autoAt = performance.now() + 2000;
+    dwellStart = 0;
+  };
+  App.getCard = function () { return Math.round(goal); };
+  App.cardCount = N;
 })();
 
 /* ---- 5. Project detail modal -------------------------------------------- */
@@ -483,10 +569,12 @@ window.addEventListener("keydown", (e) => e.key === "Escape" && closeModal());
         <span class="tl-node"></span>
         <span class="tl-date">${t.period}</span>
         <div class="tl-card">
-          <div class="tl-kind">${kind}</div>
-          <h3 class="tl-title">${t.title}</h3>
-          <p class="tl-org">${t.org}</p>
-          <p class="tl-note">${t.note}</p>
+          <div class="tl-face tl-summary">
+            <div class="tl-kind">${kind}</div>
+            <h3 class="tl-title">${t.title}</h3>
+            <p class="tl-org">${t.org}</p>
+          </div>
+          <div class="tl-face tl-note"><p>${t.note}</p></div>
         </div>
       </li>`;
     })
@@ -542,6 +630,9 @@ const ICONS = {
   const thumb = document.getElementById("tl-thumb");
   if (!wrap || !track || !thumb) return;
 
+  App.tlWrap = wrap; // the global journey handler (in the navigation module)
+                      // drives horizontal scroll here and detects its edges
+
   const maxScroll = () => wrap.scrollWidth - wrap.clientWidth;
   let wasAtEnd = true; // start "at edge" so no glow fires on load
 
@@ -559,17 +650,6 @@ const ICONS = {
     wasAtEnd = atEnd;
   }
 
-  // vertical wheel over the timeline scrolls it left↔right
-  wrap.addEventListener(
-    "wheel",
-    (e) => {
-      if (maxScroll() <= 1) return;
-      wrap.scrollLeft += Math.abs(e.deltaY) > Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
-      update();
-      e.preventDefault();
-    },
-    { passive: false }
-  );
   wrap.addEventListener("scroll", update);
   window.addEventListener("resize", update);
 
@@ -607,6 +687,8 @@ const ICONS = {
   const track = document.getElementById("ab-scroll");
   const thumb = document.getElementById("ab-thumb");
   if (!page || !track || !thumb) return;
+
+  App.aboutPage = page; // the global journey handler detects its top edge here
 
   const maxScroll = () => page.scrollHeight - page.clientHeight;
   let wasAtEnd = true; // start "at edge" so no glow fires on load
