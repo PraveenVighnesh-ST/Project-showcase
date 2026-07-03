@@ -20,7 +20,10 @@ const PROJECTS = [
     category: "Robotics / Mechatronics",
     year: "2026",
     accent: "#4da3ff",
-    poster: "assets/img/robotic-arm.png",
+    // Real photo of the built robot, cropped/framed to match the CAD
+    // render's final pose so the video -> poster handoff reads as one
+    // continuous shot rather than a hard cut.
+    poster: "assets/img/robotic-arm-photo.jpg",
     // Real alpha render (VP9/WebM, transparent) tried first; excavator.mp4 is
     // a placeholder fallback for the rare browser that can't decode VP9 alpha.
     video: ["assets/video/robot.webm", "assets/video/excavator.mp4"],
@@ -78,8 +81,8 @@ const PROJECTS = [
     category: "CAD / Reverse Engineering",
     year: "2024",
     accent: "#9aa3b2",
-    poster: "assets/img/spot.png",
-    video: null,
+    poster: "assets/img/spot-cover.jpg",
+    video: "assets/video/spot.mp4",
     hero:
       "A high-fidelity CAD reconstruction of Boston Dynamics' Spot, modelled " +
       "purely from orthographic reference drawings — an exercise in disciplined " +
@@ -278,8 +281,8 @@ const PROJECTS = [
     category: "Surface Modelling",
     year: "2024",
     accent: "#5fb0d8",
-    poster: "assets/img/lockheed.png",
-    video: null,
+    poster: "assets/img/lockheed-cover.jpg",
+    video: "assets/video/lockheed-tristar.mp4",
     hero:
       "A structural surface model of the Lockheed L-1011 TriStar, using " +
       "parametric, constraint-based modelling to reproduce realistic joints " +

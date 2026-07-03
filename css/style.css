@@ -134,16 +134,24 @@ body.modal-open { overflow: hidden; }
   height: 100vh;
   overflow: hidden;
   border-radius: 0;
-  transition: width 2.1s var(--ease), height 2.1s var(--ease),
-    transform 2.1s var(--ease), border-radius 2.1s var(--ease),
-    box-shadow 2.1s var(--ease);
+  will-change: transform, width, height;
+  /* shrink runs for the same time as the video fade below, so the frame
+     collapsing onto the card and the video dissolving out read as one motion */
+  transition: width 1.6s var(--ease), height 1.6s var(--ease),
+    transform 1.6s var(--ease), border-radius 1.6s var(--ease),
+    box-shadow 1.6s var(--ease);
 }
 .intro-video {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
+  /* dissolves out across the whole shrink, revealing the card poster behind */
+  transition: opacity 1.6s var(--ease);
 }
+/* frozen a touch before its last frame, then dissolved to reveal the real
+   card (same size/position, via shrink()) sitting right behind it */
+#intro.video-fade .intro-video { opacity: 0; }
 /* On .shrunk the fullscreen video collapses to the SAME landscape size/ratio
    as a project card (380 x 238 -> 16:10). */
 #intro.shrunk .intro-frame {

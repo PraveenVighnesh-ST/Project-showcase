@@ -165,11 +165,11 @@ function pulseGlow(el) {
   const skip = document.getElementById("intro-skip");
   if (!intro) return;
 
-  const SHRINK_LEAD = 3;       // shrink starts this many seconds before the video ends
-  const FALLBACK_DURATION = 6; // guess, only used if the real duration never loads
-  const BG_REVEAL_AT = 4;      // the live site starts fading in at this point in the video
+  const BG_REVEAL_AT = 4;      // site fades in 0.5s AFTER the shrink starts (OUTRO_AT)
+  const OUTRO_AT = 3.5;        // the video starts shrinking onto the card here...
+  const OUTRO_DUR = 1.6;       // ...over this long, dissolving out as it shrinks
 
-  let done = false, shrunk = false, bgRevealed = false, shrinkTimer = null;
+  let done = false, shrunk = false, bgRevealed = false, outroStarted = false;
 
   // Gradually fade the solid black away to reveal the live site (constellation
   // bg, nav, cards) behind the intro, starting once the video hits BG_REVEAL_AT
@@ -201,14 +201,6 @@ function pulseGlow(el) {
     intro.classList.add("shrunk", "to-corner");
   }
 
-  // Schedule the shrink for the last SHRINK_LEAD seconds of the ACTUAL video
-  // (once its real duration is known), instead of a guessed fixed delay.
-  function scheduleShrink(durationSec) {
-    const d = isFinite(durationSec) && durationSec > 0 ? durationSec : FALLBACK_DURATION;
-    clearTimeout(shrinkTimer);
-    shrinkTimer = setTimeout(shrink, Math.max(0, d - SHRINK_LEAD) * 1000);
-  }
-
   function reveal() {
     if (done) return;
     done = true;
@@ -220,24 +212,35 @@ function pulseGlow(el) {
     // tell the carousel the intro is over (it then waits 3s before auto-scroll)
     window.dispatchEvent(new Event("intro:done"));
   }
+  // Coordinated outro: the fullscreen video shrinks onto the card AND fades
+  // out at the same time, dissolving into the real photo poster that sits in
+  // that same card right behind it (shrink() matched its size/position). One
+  // smooth motion instead of shrink-then-cut, so it never feels janky.
+  function outro() {
+    if (outroStarted) return;
+    outroStarted = true;
+    shrink();                           // frame shrinks to the card + text flies to corner
+    intro.classList.add("video-fade");  // video gently dissolves out as it shrinks
+    setTimeout(reveal, OUTRO_DUR * 1000);
+  }
   function finish() {
     // skip / error: collapse the choreography quickly, then reveal
-    clearTimeout(shrinkTimer);
+    outroStarted = true;
     shrink();
+    intro.classList.add("video-fade");
     setTimeout(reveal, 450);
   }
 
   if (video) {
-    if (video.readyState >= 1 && video.duration) scheduleShrink(video.duration);
-    else video.addEventListener("loadedmetadata", () => scheduleShrink(video.duration), { once: true });
     video.addEventListener("timeupdate", () => {
       if (video.currentTime >= BG_REVEAL_AT) revealBg();
+      if (video.currentTime >= OUTRO_AT) outro();
     });
-    // only swap over to the live card once the video has actually finished
-    video.addEventListener("ended", reveal);
+    // fallback if the clip is shorter than OUTRO_AT (or timeupdate is sparse)
+    video.addEventListener("ended", outro);
     video.addEventListener("error", finish);
   } else {
-    scheduleShrink(FALLBACK_DURATION);
+    setTimeout(outro, OUTRO_AT * 1000);
   }
 
   // safety net in case metadata/ended never fire (e.g. autoplay blocked)
@@ -245,7 +248,6 @@ function pulseGlow(el) {
 
   skip &&
     skip.addEventListener("click", () => {
-      clearTimeout(shrinkTimer);
       clearTimeout(maxWait);
       finish();
     });
