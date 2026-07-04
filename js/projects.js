@@ -12,7 +12,10 @@
      3D viewer. Leave it out (or null) to hide the viewer for that project.
    ========================================================================== */
 
-const PROJECTS = [
+// ALL_PROJECTS holds every project (incl. ones parked with `hidden: true` until
+// they have a real render). The carousel/modal only ever see PROJECTS below —
+// the visible set, in order — so parked projects are stored but not shown.
+const ALL_PROJECTS = [
   {
     id: "robotic-arm",
     title: "7-DOF Robotic Arm",
@@ -24,16 +27,15 @@ const PROJECTS = [
     // render's final pose so the video -> poster handoff reads as one
     // continuous shot rather than a hard cut.
     poster: "assets/img/robotic-arm-photo.jpg",
-    // Real alpha render (VP9/WebM, transparent) tried first; excavator.mp4 is
-    // a placeholder fallback for the rare browser that can't decode VP9 alpha.
-    video: ["assets/video/robot.webm", "assets/video/excavator.mp4"],
+    // Real alpha render (VP9/WebM, transparent) tried first; robot.mp4 is the
+    // opaque (black-bg) fallback for browsers that can't decode VP9 alpha.
+    video: ["assets/video/robot.webm", "assets/video/robot.mp4"],
     model: "assets/models/Cooka.glb", // real GLB — shows in the modal's 3D viewer
     // starting camera for the 3D viewer (azimuth polar radius) — a 3/4 hero angle
     cameraOrbit: "25deg 74deg auto",
     hero:
-      "A ground-up 7-DOF robotic system with a 10 kg payload, engineered for " +
-      "under 20 arcmin of backlash — designed mechanically, sized from " +
-      "simulated joint torques, and brought up as a full ROS 2 stack.",
+      "A ground-up 7-DOF arm — 10 kg payload, < 20 arcmin backlash — sized " +
+      "from simulated joint torques and brought up as a full ROS 2 stack.",
     specs: [
       { label: "Degrees of freedom", value: "7-DOF" },
       { label: "Payload", value: "10 kg" },
@@ -45,32 +47,22 @@ const PROJECTS = [
     tags: ["ROS 2", "CANopen", "Gazebo", "ros2_control", "STM32", "Fusion 360"],
     sections: [
       {
-        title: "Sizing the joints from physics, not guesswork",
+        title: "Sized from physics, not safety factors",
         body:
-          "I simulated dynamic joint motion in Gazebo with ros2_control, " +
-          "assigning realistic link masses and inertias to quantify the peak " +
-          "torque demand at each joint under load. Those numbers drove the " +
-          "motor and bearing sizing calculations directly — the mechanics are " +
-          "dimensioned to the loads they actually see, not to a safety-factor " +
-          "guess.",
+          "Peak joint torques from a Gazebo / ros2_control dynamics sim drove " +
+          "motor and bearing selection — dimensioned to the loads they see.",
         image: null,
       },
       {
-        title: "Smooth multi-axis motion over CANopen",
+        title: "Synchronised multi-axis motion",
         body:
-          "Motor control uses the CANopen CiA 402 profile in interpolated " +
-          "position (mode 7) and cyclic synchronous position (mode 8) modes, " +
-          "so every axis moves in a synchronized, jerk-limited trajectory " +
-          "rather than fighting each other point-to-point.",
+          "CANopen CiA 402 interpolated (mode 7) and cyclic-synchronous " +
+          "(mode 8) position control — jerk-limited, every axis coordinated.",
         image: null,
       },
       {
-        title: "Automating the boring half of ROS 2",
-        body:
-          "I used Claude Code to programmatically generate the repetitive parts " +
-          "of the ROS 2 workflow — Xacro, launch files, and package " +
-          "configuration. That cut simulation setup time sharply and made the " +
-          "debug loop fast enough to actually iterate on the hard problems.",
+        title: "Tight sim-to-debug loop",
+        body: "Auto-generated Xacro, launch and package config to keep iteration fast.",
         image: null,
       },
     ],
@@ -88,33 +80,29 @@ const PROJECTS = [
     model: "assets/models/Spot.glb",
     cameraOrbit: "30deg 78deg auto",
     hero:
-      "A high-fidelity CAD reconstruction of Boston Dynamics' Spot, modelled " +
-      "purely from orthographic reference drawings — an exercise in disciplined " +
-      "sketching, tolerance, and how a mechanism's parts truly interact.",
+      "A high-fidelity CAD reconstruction of Boston Dynamics' Spot, built " +
+      "purely from orthographic references — sketching, tolerance and how a " +
+      "mechanism's parts actually interact.",
     specs: [
       { label: "Method", value: "Orthographic reconstruction" },
+      { label: "Articulation", value: "4 legs × 3-DOF (12-DOF)" },
       { label: "Tool", value: "Fusion 360" },
-      { label: "Focus", value: "Joint articulation · tolerance" },
-      { label: "Legs", value: "4 × 3-DOF" },
+      { label: "Reference platform", value: "14 kg payload · 1.6 m/s" },
     ],
     tags: ["Fusion 360", "Surface modelling", "Assembly design", "GD&T"],
     sections: [
       {
-        title: "From flat views to a working assembly",
+        title: "Flat views → working assembly",
         body:
-          "Starting from front, side and top reference images, I built simple, " +
-          "fully-defined sketches and reconstructed each body so the legs " +
-          "articulate correctly. The goal wasn't just a pretty shell — it was " +
-          "an assembly whose joints, clearances and part interactions behave " +
-          "like the real machine.",
+          "Front / side / top references → fully-defined sketches → an assembly " +
+          "whose legs articulate with correct clearances, not just a shell.",
         image: "assets/img/spot-2.png",
       },
       {
         title: "Tolerance-aware detailing",
         body:
-          "Every mating feature was modelled with real tolerances and fits in " +
-          "mind, so the components could plausibly be manufactured and " +
-          "assembled rather than merely intersecting in CAD.",
+          "Mating features modelled to real fits — parts that could plausibly " +
+          "be manufactured and assembled, not merely intersect in CAD.",
         image: "assets/img/spot-front.png",
       },
     ],
@@ -132,31 +120,26 @@ const PROJECTS = [
     model: "assets/models/Escavator.glb",
     cameraOrbit: "-30deg 76deg auto",
     hero:
-      "A full hydraulic excavator arm assembly — boom, stick and bucket — " +
-      "modelled as a working linkage and animated through its complete range " +
-      "of motion to study the mechanism's kinematics.",
+      "A full hydraulic excavator arm — boom, stick and bucket — modelled as " +
+      "a working linkage and animated through its complete range of motion.",
     specs: [
-      { label: "Type", value: "3-stage hydraulic linkage" },
+      { label: "Mechanism", value: "3-stage hydraulic linkage" },
+      { label: "Motion", value: "3-DOF (boom · stick · bucket)" },
       { label: "Tool", value: "Fusion 360" },
-      { label: "Output", value: "Motion study + blueprint" },
+      { label: "Output", value: "Motion study + drawings" },
     ],
     tags: ["Fusion 360", "Kinematics", "Linkage design", "Motion study"],
     sections: [
       {
         title: "A linkage that actually moves",
         body:
-          "The boom, stick and bucket are jointed as a real hydraulic linkage " +
-          "so the assembly sweeps through its full working envelope. Watching " +
-          "the mechanism move is the fastest way to catch interference and " +
-          "understand where the forces concentrate.",
+          "Jointed as a real hydraulic linkage so it sweeps the full working " +
+          "envelope — the fastest way to catch interference and load paths.",
         image: "assets/img/excavator-2.jpg",
       },
       {
         title: "Documented for manufacture",
-        body:
-          "Alongside the 3D model I produced dimensioned engineering drawings, " +
-          "closing the loop from concept to a set of documents someone could " +
-          "actually build from.",
+        body: "Taken through to dimensioned engineering drawings — concept to buildable.",
         image: "assets/img/excavator-blueprint.jpg",
       },
     ],
@@ -164,6 +147,7 @@ const PROJECTS = [
 
   {
     id: "foot-gesture-hmi",
+    hidden: true, // no real render yet — stored for later, not shown in the carousel
     title: "Foot-Gesture HMI",
     tagline: "Hands-free robot control through computer vision",
     category: "Computer Vision / Controls",
@@ -216,13 +200,12 @@ const PROJECTS = [
     model: "assets/models/humanoid-hand.glb",
     cameraOrbit: "15deg 78deg auto",
     hero:
-      "An anthropomorphic robotic hand whose fingers reproduce a human-like " +
-      "grasping trajectory — using a clever under-actuated linkage driven by a " +
-      "single motor.",
+      "An anthropomorphic hand whose fingers trace a human-like grasp — one " +
+      "motor driving an under-actuated linkage.",
     specs: [
       { label: "Mechanism", value: "Dual four-bar linkage" },
-      { label: "Actuation", value: "Under-actuated, 1 linear motor" },
-      { label: "Joints", value: "MCP → PIP → DIP coupled" },
+      { label: "Actuation", value: "Under-actuated · 1 linear motor" },
+      { label: "Coupling", value: "MCP → PIP → DIP" },
       { label: "Tool", value: "Fusion 360" },
     ],
     tags: ["Fusion 360", "Under-actuation", "Four-bar linkage", "Biomechanics"],
@@ -230,11 +213,9 @@ const PROJECTS = [
       {
         title: "One input, human-like motion",
         body:
-          "Each finger is a pair of four-bar linkages. Driving the MCP joint " +
-          "moves the PIP and DIP joints dependently, so a single linear motor " +
-          "traces the same curling trajectory a human finger follows before it " +
-          "touches an object. Under-actuation buys natural, compliant grasping " +
-          "without a motor per joint.",
+          "Each finger is a pair of four-bars: driving the MCP curls PIP and " +
+          "DIP dependently, so a single motor traces a natural, compliant " +
+          "grasp — no motor per joint.",
         image: null,
       },
     ],
@@ -242,6 +223,7 @@ const PROJECTS = [
 
   {
     id: "traction-motor",
+    hidden: true, // no real render yet — stored for later, not shown in the carousel
     title: "E-Traction Motor",
     tagline: "Modular electric motor housing — parametric CAD + FEA",
     category: "Electromobility / FEA",
@@ -294,30 +276,26 @@ const PROJECTS = [
     model: "assets/models/Lockheed.glb", // Draco-compressed (62MB -> 3MB) for web
     cameraOrbit: "35deg 68deg auto",
     hero:
-      "A structural surface model of the Lockheed L-1011 TriStar, using " +
-      "parametric, constraint-based modelling to reproduce realistic joints " +
-      "between wing, fuselage and tail.",
+      "A structural surface model of the Lockheed L-1011 TriStar — " +
+      "constraint-based modelling of the real wing / fuselage / tail joinery.",
     specs: [
       { label: "Method", value: "Surface modelling" },
-      { label: "Focus", value: "Structural assembly" },
-      { label: "Domain", value: "Aerodynamics" },
+      { label: "Reference", value: "L-1011 TriStar (trijet)" },
+      { label: "Span · length", value: "47 m · 54 m" },
+      { label: "Powerplant", value: "3 × Rolls-Royce RB211" },
     ],
     tags: ["Surface modelling", "Assembly design", "Aerostructures"],
     sections: [
       {
         title: "Where the surfaces meet",
         body:
-          "The interesting engineering in an airframe is the joinery — how the " +
-          "wing roots into the fuselage, how the empennage attaches. I used " +
-          "constraint-based modelling to replicate those junctions realistically " +
-          "rather than approximating them as a single skin.",
+          "Constraint-based modelling of the real joinery — how the wing roots " +
+          "into the fuselage and the empennage attaches — not one approximated skin.",
         image: "assets/img/lockheed-2.png",
       },
       {
         title: "Documented as drawings",
-        body:
-          "The model was taken through to engineering drawings, keeping the " +
-          "work grounded in something buildable and dimensioned.",
+        body: "Taken through to dimensioned engineering drawings.",
         image: "assets/img/lockheed-drawing.jpg",
       },
     ],
@@ -325,6 +303,7 @@ const PROJECTS = [
 
   {
     id: "beverage-machine",
+    hidden: true, // no real render yet — stored for later, not shown in the carousel
     title: "Beverage Automation",
     tagline: "Project Thesis · Mechatronic subsystems, built and validated",
     category: "Mechatronics",
@@ -375,6 +354,9 @@ const PROJECTS = [
     ],
   },
 ];
+
+// The visible carousel = only projects that have real media (not `hidden`).
+const PROJECTS = ALL_PROJECTS.filter((p) => !p.hidden);
 
 /* ---- Timeline: education + experience (newest first) --------------------- */
 const TIMELINE = [
@@ -457,10 +439,12 @@ const ABOUT = {
   resumes: [
     { label: "Résumé", href: "assets/resume/Praveen-Vighnesh-Robotics-CV.pdf" },
   ],
+  // shown after the Résumé button, in this order
   socials: [
+    { label: "LinkedIn", href: "https://www.linkedin.com/in/praveen-vighnesh-s-t-5497421aa/", icon: "linkedin" },
     { label: "GitHub", href: "https://github.com/PraveenVighnesh-ST", icon: "github" },
     { label: "GrabCAD", href: "https://grabcad.com/praveen.vighnesh.s.t-1", icon: "grabcad" },
     { label: "YouTube", href: "https://www.youtube.com/@praveenvigheshst", icon: "youtube" },
-    { label: "LinkedIn", href: "https://www.linkedin.com/in/praveen-vighnesh-s-t-5497421aa/", icon: "linkedin" },
+    { label: "Instagram", href: "https://www.instagram.com/graphite_with_life/", icon: "instagram" },
   ],
 };

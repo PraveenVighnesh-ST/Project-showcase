@@ -750,9 +750,17 @@ body[data-page="about"] .side-scroll { opacity: 1; pointer-events: auto; }
   flex-direction: column;
   overflow: hidden;
   border-radius: 26px;
-  background: linear-gradient(180deg, var(--bg-2), var(--bg-1));
+  /* on-brand depth: a soft accent glow up top + a faint constellation-blue
+     wash over the deep panel gradient, instead of a flat fill */
+  background:
+    radial-gradient(120% 90% at 50% -15%, color-mix(in srgb, var(--m-accent, #4da3ff) 16%, transparent), transparent 55%),
+    radial-gradient(90% 70% at 100% 0%, rgba(120, 150, 200, 0.08), transparent 60%),
+    linear-gradient(180deg, var(--bg-2), var(--bg-1));
   border: 1px solid var(--line-2);
-  box-shadow: 0 40px 120px rgba(0, 0, 0, 0.7);
+  box-shadow: 0 40px 120px rgba(0, 0, 0, 0.7),
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset,
+    0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 0 70px -24px var(--m-accent, transparent); /* subtle accent halo */
   transform: scale(0.9);          /* grows to 1 on open -> "becomes" the window */
   opacity: 0;
   transition: transform 0.5s var(--ease), opacity 0.4s var(--ease);
@@ -951,10 +959,22 @@ body[data-page="about"] .side-scroll { opacity: 1; pointer-events: auto; }
   display: grid;
   grid-template-columns: minmax(230px, 0.9fr) minmax(320px, 1.5fr) minmax(300px, 1.15fr);
 }
-.m-col { min-height: 0; overflow-y: auto; padding: 26px 30px; scrollbar-width: thin; }
+.m-col { min-height: 0; overflow-y: auto; padding: 26px 30px; }
 .m-keypoints { border-right: 1px solid var(--line); }
 .m-about { border-left: 1px solid var(--line); }
 .m-viewer { display: flex; flex-direction: column; overflow: hidden; }
+/* minimal scrollbars, matching the timeline/About sliders: a thin translucent
+   thumb on a transparent track, brightening slightly on hover */
+.m-col { scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.16) transparent; }
+.m-col::-webkit-scrollbar { width: 7px; }
+.m-col::-webkit-scrollbar-track { background: transparent; }
+.m-col::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.m-col::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.28); background-clip: padding-box; }
 .m-col-label {
   font-family: var(--mono);
   font-size: 11px;
