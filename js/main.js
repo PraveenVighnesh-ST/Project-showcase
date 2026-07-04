@@ -302,19 +302,29 @@ function pulseGlow(el) {
 
   // Smooth-scroll easing loop: the wheel sets a target; the actual scroll glides
   // toward it each frame (instead of jumping per wheel tick -> no jank).
+  // On touch we hand control to NATIVE scrolling (App.tlNative/abNative, set on
+  // touchstart) — the loop then just follows, so it never fights the finger.
   (function scrollEase() {
     if (currentSection === "timeline" && App.tlWrap) {
       const w = App.tlWrap;
-      App.tlTarget = Math.max(0, Math.min(w.scrollWidth - w.clientWidth, App.tlTarget));
-      const d = App.tlTarget - w.scrollLeft;
-      if (Math.abs(d) > 0.5) w.scrollLeft += d * 0.16;
-      else if (d !== 0) w.scrollLeft = App.tlTarget;
+      if (App.tlNative) {
+        App.tlTarget = w.scrollLeft; // native/touch scroll owns it -> just follow
+      } else {
+        App.tlTarget = Math.max(0, Math.min(w.scrollWidth - w.clientWidth, App.tlTarget));
+        const d = App.tlTarget - w.scrollLeft;
+        if (Math.abs(d) > 0.5) w.scrollLeft += d * 0.16;
+        else if (d !== 0) w.scrollLeft = App.tlTarget;
+      }
     } else if (currentSection === "about" && App.aboutPage) {
       const p = App.aboutPage;
-      App.abTarget = Math.max(0, Math.min(p.scrollHeight - p.clientHeight, App.abTarget));
-      const d = App.abTarget - p.scrollTop;
-      if (Math.abs(d) > 0.5) p.scrollTop += d * 0.16;
-      else if (d !== 0) p.scrollTop = App.abTarget;
+      if (App.abNative) {
+        App.abTarget = p.scrollTop;
+      } else {
+        App.abTarget = Math.max(0, Math.min(p.scrollHeight - p.clientHeight, App.abTarget));
+        const d = App.abTarget - p.scrollTop;
+        if (Math.abs(d) > 0.5) p.scrollTop += d * 0.16;
+        else if (d !== 0) p.scrollTop = App.abTarget;
+      }
     }
     requestAnimationFrame(scrollEase);
   })();
@@ -352,6 +362,7 @@ function pulseGlow(el) {
         }
       } else if (currentSection === "timeline") {
         e.preventDefault();
+        App.tlNative = false; // wheel -> use the eased glide, not native scroll
         const wrap = App.tlWrap;
         if (!wrap) return;
         const max = wrap.scrollWidth - wrap.clientWidth;
@@ -361,6 +372,7 @@ function pulseGlow(el) {
         else App.tlTarget = Math.max(0, Math.min(max, App.tlTarget + dy)); // glide (see scrollEase)
       } else if (currentSection === "about") {
         e.preventDefault();
+        App.abNative = false; // wheel -> eased glide
         const page = App.aboutPage;
         if (!page) return;
         const maxA = page.scrollHeight - page.clientHeight;
@@ -390,6 +402,8 @@ function pulseGlow(el) {
   let autoAt = Infinity;          // auto-scroll disabled until 3s after intro
   let dwellStart = 0;
   let lastX = 0, moved = 0, pressedIndex = null, frontIndex = -1;
+  let recoilIndex = -1, recoilStart = 0;    // the ONE card that dips when opened
+  const RECOIL_DUR = 420;
   const cards = [];
 
   const easeInOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
@@ -398,10 +412,14 @@ function pulseGlow(el) {
     tFrom = angle; tTo = to; tStart = performance.now(); tDur = dur; tweening = true;
   }
 
-  // start auto-scroll only 3s after the intro finishes
-  window.addEventListener("intro:done", () => { autoAt = performance.now() + 3000; });
-  // fallback in case the intro never fires an event
-  setTimeout(() => { if (autoAt === Infinity) autoAt = performance.now() + 3000; }, 8000);
+  // Auto-scroll is normally armed 3s after the intro. But when the first-run
+  // guidance demo runs (section 5b) it takes over the timing: the demo calls
+  // App.startAuto() once its pointer -> open-window -> close sequence is done.
+  App.startAuto = (delayMs) => { autoAt = performance.now() + (delayMs || 0); };
+  App.holdAuto = () => { autoAt = Infinity; };
+  window.addEventListener("intro:done", () => { if (!App.demoWillRun) App.startAuto(3000); });
+  // fallback in case the intro never fires an event / the demo stalls
+  setTimeout(() => { if (autoAt === Infinity && !App.demoRunning) App.startAuto(3000); }, 12000);
 
   PROJECTS.forEach((p, i) => {
     const card = document.createElement("div");
@@ -459,14 +477,24 @@ function pulseGlow(el) {
       const theta = (o * STEP * Math.PI) / 180;
       const x = Math.sin(theta) * RADIUS;
       const z = (Math.cos(theta) - 1) * RADIUS;
+      // only the clicked card dips (press-in) as its window opens; a half-sine
+      // takes its scale 1 -> ~0.85 -> 1 over RECOIL_DUR (others are untouched)
+      let rScale = 1;
+      if (i === recoilIndex) {
+        const rt = (performance.now() - recoilStart) / RECOIL_DUR;
+        if (rt >= 1) recoilIndex = -1;
+        else rScale = 1 - 0.15 * Math.sin(rt * Math.PI);
+      }
       el.style.transform =
-        `translate3d(${x}px,0,${z}px) rotateY(${(-o * STEP * 0.9).toFixed(2)}deg) scale(${(1 - dist * 0.06).toFixed(3)})`;
+        `translate3d(${x}px,0,${z}px) rotateY(${(-o * STEP * 0.9).toFixed(2)}deg) scale(${((1 - dist * 0.06) * rScale).toFixed(3)})`;
       // fully opaque out to the culling distance (no more see-through cards
       // letting the next one bleed through) -- dim with brightness instead
       el.style.opacity = dist > 2.9 ? "0" : "1";
       el.style.filter = `brightness(${Math.max(0.5, 1 - dist * 0.25).toFixed(3)})`;
       el.style.zIndex = String(1000 - Math.round(dist * 100));
-      el.style.pointerEvents = dist > 1.6 ? "none" : "auto";
+      // every visible card is clickable (not just the centre one) so a tap on a
+      // side card opens its window directly; only cull the fully-faded ones
+      el.style.pointerEvents = dist > 2.9 ? "none" : "auto";
       el.classList.remove("is-front");
       if (video) {
         if (dist < 2.4) {
@@ -520,7 +548,25 @@ function pulseGlow(el) {
   }
   requestAnimationFrame(loop);
 
-  // pointer drag + tap-to-open
+  // Which card is under a screen point? getBoundingClientRect reflects the
+  // real projected (3D-transformed) bounds, so this reliably finds side cards
+  // even when the browser's own hit-testing misses a rotated card. Ties go to
+  // the frontmost (highest z-index) card.
+  function cardAtPoint(x, y) {
+    let hit = null, bestZ = -Infinity;
+    for (let i = 0; i < cards.length; i++) {
+      const el = cards[i].el;
+      if (el.style.pointerEvents === "none") continue;
+      const r = el.getBoundingClientRect();
+      if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) {
+        const z = parseInt(el.style.zIndex || "0", 10);
+        if (z >= bestZ) { bestZ = z; hit = i; }
+      }
+    }
+    return hit;
+  }
+
+  // pointer drag + tap-to-open (any visible card, not just the centre one)
   stage.addEventListener("pointerdown", (e) => {
     dragging = true;
     tweening = false;
@@ -529,7 +575,7 @@ function pulseGlow(el) {
     vel = 0;
     autoAt = performance.now() + 2000;
     const card = e.target.closest(".card");
-    pressedIndex = card ? Number(card.dataset.index) : null;
+    pressedIndex = card ? Number(card.dataset.index) : cardAtPoint(e.clientX, e.clientY);
     stage.setPointerCapture(e.pointerId);
   });
   stage.addEventListener("pointermove", (e) => {
@@ -572,6 +618,12 @@ function pulseGlow(el) {
   };
   App.getCard = function () { return Math.round(goal); };
   App.cardCount = N;
+  // make just ONE card dip when its window is opened (called from openModal)
+  App.recoilCard = function (index) {
+    if (index == null || index < 0 || index >= N) return;
+    recoilIndex = index;
+    recoilStart = performance.now();
+  };
 })();
 
 /* ---- 5. Project detail modal -------------------------------------------- */
@@ -580,57 +632,199 @@ const modalContent = document.getElementById("modal-content");
 const modalWindow = document.getElementById("modal-window");
 
 function openModal(p) {
+  // KEY POINTS column — the project's headline specs (+ tags below).
   const specs = (p.specs || [])
     .map(
       (s) =>
-        `<div class="m-spec"><div class="m-spec-label">${s.label}</div><div class="m-spec-value">${s.value}</div></div>`
-    )
-    .join("");
-  const viewer = p.model
-    ? `<div class="m-viewer">
-         <model-viewer src="${p.model}" poster="${p.poster}" alt="${p.title} 3D model"
-           camera-controls auto-rotate touch-action="pan-y" shadow-intensity="1"
-           exposure="1" interaction-prompt="none"></model-viewer>
-         <p class="m-viewer-cap">// Drag to orbit · scroll to zoom · GLB model</p>
-       </div>`
-    : "";
-  const sections = (p.sections || [])
-    .map(
-      (s) =>
-        `<div class="m-section"><h3>${s.title}</h3><p>${s.body}</p>${
-          s.image ? `<img src="${s.image}" alt="${s.title}" loading="lazy" />` : ""
-        }</div>`
+        `<div class="m-spec"><span class="m-spec-label">${s.label}</span><span class="m-spec-value">${s.value}</span></div>`
     )
     .join("");
   const tags = (p.tags || []).map((t) => `<span class="m-tag">${t}</span>`).join("");
 
+  // VIEWER column — the GLB 3D viewer if there's a model, else the project's
+  // video (looping) or its poster image, so the middle is always a visual.
+  let viewerInner;
+  if (p.model) {
+    viewerInner =
+      `<model-viewer src="${p.model}" poster="${p.poster}" alt="${p.title} 3D model"
+         camera-controls auto-rotate touch-action="pan-y" shadow-intensity="1"
+         exposure="1.05" interaction-prompt="none"${
+           p.cameraOrbit ? ` camera-orbit="${p.cameraOrbit}"` : ""
+         }></model-viewer>
+       <p class="m-viewer-cap">// Drag to orbit · scroll to zoom · GLB model</p>`;
+  } else if (p.video) {
+    viewerInner =
+      `<video class="m-viewer-media" autoplay muted loop playsinline poster="${p.poster}">${videoSourceTags(
+        p.video
+      )}</video>`;
+  } else {
+    viewerInner = `<img class="m-viewer-media" src="${p.poster}" alt="${p.title}" />`;
+  }
+
+  // ABOUT column — the narrative: lead paragraph, then the write-up sections.
+  const sections = (p.sections || [])
+    .map(
+      (s) =>
+        `<div class="m-section"><h4>${s.title}</h4><p>${s.body}</p>${
+          s.image ? `<img src="${s.image}" alt="${s.title}" loading="lazy" />` : ""
+        }</div>`
+    )
+    .join("");
+
   modalContent.innerHTML = `
-    <div class="m-hero">
+    <div class="m-head">
       <div class="m-cat">${p.category} · ${p.year}</div>
       <h2 class="m-title">${p.title}</h2>
-      <p class="m-tagline">${p.tagline}</p>
-      <p class="m-hero-blurb">${p.hero}</p>
+      <p class="m-desc">${p.tagline}</p>
     </div>
-    ${p.specs && p.specs.length ? `<div class="m-specs">${specs}</div>` : ""}
-    ${viewer}
-    ${sections}
-    ${tags ? `<div class="m-tags">${tags}</div>` : ""}`;
+    <div class="m-body">
+      <aside class="m-col m-keypoints">
+        <h3 class="m-col-label">Key points</h3>
+        ${specs || ""}
+        ${tags ? `<div class="m-tags">${tags}</div>` : ""}
+      </aside>
+      <div class="m-col m-viewer">${viewerInner}</div>
+      <div class="m-col m-about">
+        <h3 class="m-col-label">About the project</h3>
+        <p class="m-about-lead">${p.hero}</p>
+        ${sections}
+      </div>
+    </div>`;
 
   modalWindow.style.setProperty("--m-accent", p.accent);
   modalRoot.style.setProperty("--accent", p.accent);
-  modalRoot.classList.add("open");
-  modalRoot.setAttribute("aria-hidden", "false");
-  document.body.classList.add("modal-open");
-  modalWindow.scrollTop = 0;
+
+  // Click feel: ONLY the clicked card dips (press-in), then the window grows
+  // out of it — so that one card visually "becomes" the project window.
+  if (App.recoilCard) App.recoilCard(typeof PROJECTS !== "undefined" ? PROJECTS.indexOf(p) : -1);
+  setTimeout(() => {
+    modalRoot.classList.add("open");
+    modalRoot.setAttribute("aria-hidden", "false");
+    document.body.classList.add("modal-open");
+    modalWindow.scrollTop = 0;
+    const about = modalContent.querySelector(".m-about");
+    if (about) about.scrollTop = 0;
+  }, 165); // let the card start dipping before the window emerges
 }
 function closeModal() {
   modalRoot.classList.remove("open");
   modalRoot.setAttribute("aria-hidden", "true");
   document.body.classList.remove("modal-open");
+  // as the window shrinks away, let ALL the cards settle back in smoothly
+  const carousel = document.getElementById("carousel");
+  if (carousel) {
+    carousel.classList.remove("settle-in");
+    void carousel.offsetWidth; // restart the settle animation
+    carousel.classList.add("settle-in");
+    setTimeout(() => carousel.classList.remove("settle-in"), 620);
+  }
 }
 document.getElementById("modal-close").addEventListener("click", closeModal);
 document.getElementById("modal-backdrop").addEventListener("click", closeModal);
 window.addEventListener("keydown", (e) => e.key === "Escape" && closeModal());
+
+/* ---- 5b. First-run guidance gesture ------------------------------------- */
+/* Once the site settles after the intro, a minimalist pointer glides onto the
+   front card and "clicks" it (press + ripple) to pop its window open; the
+   window then closes smoothly, the cards rest at centre ~2s, and only then
+   does the auto-cascade begin. Skipped for prefers-reduced-motion users. */
+(function guidanceDemo() {
+  const reduced =
+    window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (reduced) return; // no demo; the carousel arms auto-scroll on its own
+
+  App.demoWillRun = true; // tell the carousel to wait for us before auto-scrolling
+
+  let timers = [], cursor = null, finished = false, started = false;
+  const at = (ms, fn) => timers.push(setTimeout(fn, ms));
+
+  function removeUserWatch() {
+    window.removeEventListener("wheel", onUser);
+    window.removeEventListener("pointerdown", onUser, true);
+  }
+  // arms auto-scroll `delay` ms from now; the carousel adds its own 1.5s dwell,
+  // so `delay = 500` makes the cards rest ~2s at centre before the first move.
+  function finishOnce(delay) {
+    if (finished) return;
+    finished = true;
+    timers.forEach(clearTimeout); timers = [];
+    if (cursor) { cursor.remove(); cursor = null; }
+    removeUserWatch();
+    App.demoRunning = false;
+    if (App.startAuto) App.startAuto(delay);
+  }
+  function onUser() {
+    // the viewer took over -> abort the demo cleanly
+    if (finished) return;
+    if (document.body.classList.contains("modal-open")) closeModal();
+    finishOnce(500);
+  }
+
+  function run() {
+    if (started || finished) return;
+    started = true;
+    App.demoRunning = true;
+    if (App.holdAuto) App.holdAuto(); // freeze auto-scroll for the duration
+
+    const card =
+      document.querySelector(".card.is-front") || document.querySelector(".card");
+    if (!card) return finishOnce(3000);
+    const r = card.getBoundingClientRect();
+    const tx = r.left + r.width / 2;      // aim at the card centre
+    const ty = r.top + r.height * 0.52;
+
+    cursor = document.createElement("div");
+    cursor.className = "demo-cursor";
+    cursor.setAttribute("aria-hidden", "true");
+    cursor.innerHTML =
+      '<svg viewBox="0 0 24 24" class="demo-cursor-arrow">' +
+      '<path d="M5 2.5 L5 18.5 L9.4 14.3 L12.4 20.8 L15 19.6 L12 13.2 L18 13.2 Z"/></svg>' +
+      '<span class="demo-cursor-ring"></span>';
+    document.body.appendChild(cursor);
+
+    // enter from just below-right of the card, then glide onto it
+    const sx = tx + Math.min(170, r.width * 0.45);
+    const sy = ty + Math.min(150, r.height * 0.7);
+    cursor.style.transform = `translate(${sx}px, ${sy}px)`;
+
+    window.addEventListener("wheel", onUser, { passive: true });
+    window.addEventListener("pointerdown", onUser, true);
+
+    at(60, () => {
+      cursor.classList.add("show");
+      cursor.style.transform = `translate(${tx}px, ${ty}px)`;
+    });
+    at(840, () => cursor && cursor.classList.add("click")); // press + ripple on the card
+    at(990, () => {                                          // the click pops the window open
+      if (finished) return;
+      const i = App.getCard ? App.getCard() : 0;
+      openModal(PROJECTS[i] || PROJECTS[0]);
+      cursor && cursor.classList.add("fade");               // hide the pointer while the window is up
+    });
+    at(1240, () => cursor && cursor.classList.remove("click"));
+
+    // travel back up to the close (×) button and click it to dismiss
+    at(2150, () => {
+      if (finished || !cursor) return;
+      const close = document.getElementById("modal-close");
+      const c = close && close.getBoundingClientRect();
+      const cx = c ? c.left + c.width / 2 : tx;
+      const cy = c ? c.top + c.height / 2 : ty;
+      cursor.classList.remove("fade");
+      cursor.classList.add("show");
+      cursor.style.transform = `translate(${cx}px, ${cy}px)`;
+    });
+    at(2950, () => cursor && cursor.classList.add("click")); // press + ripple on the ×
+    at(3090, () => {                                         // window disappears, cards settle back
+      if (!finished) closeModal();
+      cursor && cursor.classList.add("fade");
+    });
+    at(3420, () => cursor && cursor.classList.remove("click"));
+    at(3700, () => finishOnce(500));                         // rest ~2s, then auto-cascade
+  }
+
+  window.addEventListener("intro:done", () => at(500, run));
+})();
 
 /* ---- 6. Horizontal timeline (chronological, alternating up/down) -------- */
 (function fillTimeline() {
@@ -683,8 +877,13 @@ const ICONS = {
       </div>`
     )
     .join("");
+  // opens in the in-site résumé viewer (resumeViewer module); the href stays as
+  // a no-JS fallback that just opens the PDF directly
   const resumeBtns = ABOUT.resumes
-    .map((r) => `<a class="btn btn-primary" href="${r.href}" download>↓ ${r.label}</a>`)
+    .map(
+      (r) =>
+        `<a class="btn btn-primary" href="${r.href}" data-resume="${r.href}" data-label="${r.label}">▤ ${r.label}</a>`
+    )
     .join("");
   const socialBtns = (ABOUT.socials || [])
     .map(
@@ -701,6 +900,63 @@ const ICONS = {
     <div class="skill-grid">${tiles}</div>`;
 })();
 
+/* ---- 7b. Résumé viewer: opens the CV in an on-site window (matches the
+   site's look) with a download button, instead of downloading straight away. */
+(function resumeViewer() {
+  const root = document.createElement("div");
+  root.className = "rez-root";
+  root.setAttribute("aria-hidden", "true");
+  root.innerHTML = `
+    <div class="rez-backdrop"></div>
+    <div class="rez-window" role="dialog" aria-modal="true" aria-label="Résumé">
+      <div class="rez-head">
+        <div>
+          <div class="rez-cat">Document</div>
+          <h3 class="rez-title">Résumé</h3>
+        </div>
+        <div class="rez-actions">
+          <a class="btn btn-primary rez-download" download>↓ Download</a>
+          <button class="rez-close" aria-label="Close">&times;</button>
+        </div>
+      </div>
+      <div class="rez-body"><iframe class="rez-frame" title="Résumé preview"></iframe></div>
+    </div>`;
+  document.body.appendChild(root);
+
+  const frame = root.querySelector(".rez-frame");
+  const dl = root.querySelector(".rez-download");
+  const titleEl = root.querySelector(".rez-title");
+
+  function open(href, label) {
+    titleEl.textContent = label || "Résumé";
+    dl.href = href;
+    dl.setAttribute("download", href.split("/").pop());
+    frame.src = href + "#view=FitH"; // let the browser's PDF viewer fit the width
+    root.classList.add("open");
+    root.setAttribute("aria-hidden", "false");
+    document.body.classList.add("modal-open");
+  }
+  function close() {
+    root.classList.remove("open");
+    root.setAttribute("aria-hidden", "true");
+    document.body.classList.remove("modal-open");
+    setTimeout(() => { frame.src = "about:blank"; }, 400); // stop rendering once hidden
+  }
+  root.querySelector(".rez-close").addEventListener("click", close);
+  root.querySelector(".rez-backdrop").addEventListener("click", close);
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && root.classList.contains("open")) close();
+  });
+
+  // any résumé button in the About section opens the viewer
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-resume]");
+    if (!btn) return;
+    e.preventDefault();
+    open(btn.getAttribute("data-resume"), btn.getAttribute("data-label"));
+  });
+})();
+
 /* ---- 8. Timeline: wheel-scroll horizontally + custom minimal scrollbar --- */
 (function timelineScroll() {
   const wrap = document.getElementById("timeline-wrap");
@@ -710,6 +966,10 @@ const ICONS = {
 
   App.tlWrap = wrap; // the global journey handler (in the navigation module)
                       // drives horizontal scroll here and detects its edges
+
+  // on touch, let the browser scroll this natively (finger drag / momentum);
+  // the easing loop then just follows instead of fighting it
+  wrap.addEventListener("touchstart", () => { App.tlNative = true; }, { passive: true });
 
   const maxScroll = () => wrap.scrollWidth - wrap.clientWidth;
   let wasAtEnd = true; // start "at edge" so no glow fires on load
@@ -769,6 +1029,9 @@ const ICONS = {
   if (!page || !track || !thumb) return;
 
   App.aboutPage = page; // the global journey handler detects its top edge here
+
+  // on touch, hand vertical scrolling to the browser (finger drag / momentum)
+  page.addEventListener("touchstart", () => { App.abNative = true; }, { passive: true });
 
   const maxScroll = () => page.scrollHeight - page.clientHeight;
   let wasAtEnd = true; // start "at edge" so no glow fires on load

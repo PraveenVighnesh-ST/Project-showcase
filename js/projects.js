@@ -27,7 +27,9 @@ const PROJECTS = [
     // Real alpha render (VP9/WebM, transparent) tried first; excavator.mp4 is
     // a placeholder fallback for the rare browser that can't decode VP9 alpha.
     video: ["assets/video/robot.webm", "assets/video/excavator.mp4"],
-    model: "assets/models/robotic-arm.glb", // drop your GLB here to enable 3D viewer
+    model: "assets/models/Cooka.glb", // real GLB — shows in the modal's 3D viewer
+    // starting camera for the 3D viewer (azimuth polar radius) — a 3/4 hero angle
+    cameraOrbit: "25deg 74deg auto",
     hero:
       "A ground-up 7-DOF robotic system with a 10 kg payload, engineered for " +
       "under 20 arcmin of backlash — designed mechanically, sized from " +
@@ -83,6 +85,8 @@ const PROJECTS = [
     accent: "#9aa3b2",
     poster: "assets/img/spot-cover.jpg",
     video: "assets/video/spot.mp4",
+    model: "assets/models/Spot.glb",
+    cameraOrbit: "30deg 78deg auto",
     hero:
       "A high-fidelity CAD reconstruction of Boston Dynamics' Spot, modelled " +
       "purely from orthographic reference drawings — an exercise in disciplined " +
@@ -123,8 +127,10 @@ const PROJECTS = [
     category: "Mechanism Design",
     year: "2024",
     accent: "#ffb347",
-    poster: "assets/img/excavator.jpg",
-    video: "assets/video/excavator.mp4",
+    poster: "assets/img/excavator-cover.jpg",
+    video: "assets/video/excavator-render.mp4",
+    model: "assets/models/Escavator.glb",
+    cameraOrbit: "-30deg 76deg auto",
     hero:
       "A full hydraulic excavator arm assembly — boom, stick and bucket — " +
       "modelled as a working linkage and animated through its complete range " +
@@ -205,8 +211,10 @@ const PROJECTS = [
     category: "Mechanism Design",
     year: "2024",
     accent: "#ff8a5b",
-    poster: "assets/img/robot-hand.svg",
-    video: null,
+    poster: "assets/img/hand-cover.jpg",
+    video: "assets/video/hand.mp4",
+    model: "assets/models/humanoid-hand.glb",
+    cameraOrbit: "15deg 78deg auto",
     hero:
       "An anthropomorphic robotic hand whose fingers reproduce a human-like " +
       "grasping trajectory — using a clever under-actuated linkage driven by a " +
@@ -283,6 +291,8 @@ const PROJECTS = [
     accent: "#5fb0d8",
     poster: "assets/img/lockheed-cover.jpg",
     video: "assets/video/lockheed-tristar.mp4",
+    model: "assets/models/Lockheed.glb", // Draco-compressed (62MB -> 3MB) for web
+    cameraOrbit: "35deg 68deg auto",
     hero:
       "A structural surface model of the Lockheed L-1011 TriStar, using " +
       "parametric, constraint-based modelling to reproduce realistic joints " +
