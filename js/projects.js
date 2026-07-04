@@ -69,6 +69,47 @@ const ALL_PROJECTS = [
   },
 
   {
+    id: "generative-design",
+    title: "Generative Design",
+    tagline: "Load-driven topology optimization — lighter parts, print-ready",
+    category: "Design Optimization / DfAM",
+    year: "2025",
+    accent: "#37d6a7",
+    poster: "assets/img/generative-design-cover.jpg",
+    // no `model` field -> the card window plays this video instead of a 3D viewer
+    video: "assets/video/generative-design.mp4",
+    hero:
+      "FEA-driven topology optimization that grows the lightest structure a " +
+      "load path allows — I use it to optimize the parts across my projects.",
+    specs: [
+      { label: "Method", value: "FEA topology optimization" },
+      { label: "Optimized part", value: "21 g · 19,640 mm³ (ABS)" },
+      { label: "Min safety factor", value: "2.24" },
+      { label: "Max von Mises", value: "8.95 MPa" },
+      { label: "Tool", value: "Fusion 360 · 34 iterations" },
+    ],
+    tags: ["Fusion 360", "Topology optimization", "DfAM", "3D printing", "FEA"],
+    sections: [
+      {
+        title: "Prints with zero added supports",
+        body:
+          "The optimized legs carry their own support geometry, so the slicer " +
+          "adds none — a full set prints in 2 h 35 m with barely any waste, " +
+          "orientation-optimised for additive manufacturing.",
+        image: "assets/img/generative-design-print.jpg",
+      },
+      {
+        title: "Applied across every design",
+        body:
+          "Fusion's generative engine tests thousands of FEA-driven candidates " +
+          "and keeps only the material the loads need — the same method that " +
+          "takes industry brackets 40% lighter and 20% stronger.",
+        image: null,
+      },
+    ],
+  },
+
+  {
     id: "spot",
     title: "Boston Dynamics Spot",
     tagline: "High-fidelity reconstruction from orthographic references",
@@ -119,6 +160,7 @@ const ALL_PROJECTS = [
     video: "assets/video/excavator-render.mp4",
     model: "assets/models/Escavator.glb",
     cameraOrbit: "-30deg 76deg auto",
+    exposure: 0.5, // lighter (yellow) model — dim the viewer so it reads naturally
     hero:
       "A full hydraulic excavator arm — boom, stick and bucket — modelled as " +
       "a working linkage and animated through its complete range of motion.",
@@ -199,6 +241,7 @@ const ALL_PROJECTS = [
     video: "assets/video/hand.mp4",
     model: "assets/models/humanoid-hand.glb",
     cameraOrbit: "15deg 78deg auto",
+    exposure: 0.5,
     hero:
       "An anthropomorphic hand whose fingers trace a human-like grasp — one " +
       "motor driving an under-actuated linkage.",
@@ -275,6 +318,7 @@ const ALL_PROJECTS = [
     video: "assets/video/lockheed-tristar.mp4",
     model: "assets/models/Lockheed.glb", // Draco-compressed (62MB -> 3MB) for web
     cameraOrbit: "35deg 68deg auto",
+    exposure: 0.5,
     hero:
       "A structural surface model of the Lockheed L-1011 TriStar — " +
       "constraint-based modelling of the real wing / fuselage / tail joinery.",

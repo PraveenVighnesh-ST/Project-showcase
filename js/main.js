@@ -648,7 +648,7 @@ function openModal(p) {
     viewerInner =
       `<model-viewer src="${p.model}" poster="${p.poster}" alt="${p.title} 3D model"
          camera-controls auto-rotate touch-action="pan-y" shadow-intensity="0.65"
-         exposure="0.72" tone-mapping="neutral" interaction-prompt="none"${
+         exposure="${p.exposure != null ? p.exposure : 0.72}" tone-mapping="neutral" interaction-prompt="none"${
            p.cameraOrbit ? ` camera-orbit="${p.cameraOrbit}"` : ""
          }></model-viewer>
        <p class="m-viewer-cap">// Drag to orbit · scroll to zoom · GLB model</p>`;
