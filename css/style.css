@@ -1032,12 +1032,42 @@ body[data-page="about"] .side-scroll { opacity: 1; pointer-events: auto; }
 .m-section { padding-top: 18px; margin-top: 18px; border-top: 1px solid var(--line); }
 .m-section h4 { font-size: 17px; font-weight: 700; letter-spacing: -0.3px; margin: 0 0 8px; }
 .m-section p { color: var(--ink-2); font-size: 14.5px; line-height: 1.65; margin: 0; }
-.m-section img {
+.m-section img,
+.m-section .m-section-media {
   width: 100%;
+  display: block;
   border-radius: 12px;
   margin-top: 14px;
   border: 1px solid var(--line);
   background: var(--bg-0);
+}
+/* Reserved media slot — a framed placeholder for a clip added later
+   (e.g. an FEA simulation video). The play glyph picks up the card accent. */
+.m-section .m-section-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  margin-top: 14px;
+  border-radius: 12px;
+  border: 1px dashed var(--line);
+  background: radial-gradient(70% 70% at 50% 45%, rgba(255, 255, 255, 0.04), transparent), var(--bg-0);
+  color: var(--ink-3);
+}
+.m-section .m-section-placeholder svg {
+  width: 30px;
+  height: 30px;
+  fill: var(--m-accent, var(--accent));
+  opacity: 0.8;
+}
+.m-section .m-section-placeholder span {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: 0.6px;
+  color: var(--ink-3);
 }
 
 /* Portrait / narrow: stack the columns (title, desc, key points, viewer,

@@ -150,6 +150,52 @@ const ALL_PROJECTS = [
   },
 
   {
+    id: "poultry-farm",
+    title: "Poultry Farm Design",
+    tagline: "Internship · 41-ft Pratt truss for a 40,000 sq-ft poultry shed",
+    category: "Structural Design / FEA",
+    year: "2022",
+    accent: "#d0584a",
+    poster: "assets/img/poultry-farm-cover.jpg",
+    // no `model` field -> the card window plays this render walkthrough in the
+    // centre viewer instead of a 3D model.
+    video: "assets/video/poultry-truss.mp4",
+    hero:
+      "A 41-foot Pratt roof truss I designed and helped fabricate as a design " +
+      "engineer at ISOLogic — sized in FEA, then cut, welded and machined with " +
+      "the team into the steel frame of a 40,000 sq-ft poultry-farm shed.",
+    specs: [
+      { label: "Structure", value: "41-ft Pratt roof truss" },
+      { label: "Material", value: "Mild steel · fy ≈ 207 MPa" },
+      { label: "Max von Mises", value: "11.85 MPa" },
+      { label: "Min safety factor", value: "≥ 15" },
+      { label: "Peak deflection", value: "0.32 mm" },
+      { label: "Analysis", value: "Autodesk Inventor FEA" },
+    ],
+    tags: ["Autodesk Inventor", "FEA", "Steel structures", "Welding", "GD&T"],
+    sections: [
+      {
+        title: "Sized in FEA, then welded into place",
+        body:
+          "Static stress analysis under the full roof load held peak stress at " +
+          "11.85 MPa — a safety factor above 15 with just 0.32 mm of deflection " +
+          "across the span — before the frame was cut, welded and machined on site.",
+        image: "assets/img/poultry-truss-cad.jpg",
+      },
+      {
+        // RESERVED slot for the FEA stress-animation clip. When it's ready, drop
+        // the file in assets/video and swap `placeholder` for:
+        //   video: "assets/video/poultry-sim.mp4",
+        title: "Structural FEA simulation",
+        body:
+          "An animated stress and displacement study of the truss under load — " +
+          "showing where the frame carries, and sheds, the roof forces.",
+        placeholder: "FEA simulation clip — coming soon",
+      },
+    ],
+  },
+
+  {
     id: "excavator",
     title: "Excavator Arm",
     tagline: "Hydraulic arm assembly — kinematics & mechanism design",

@@ -662,13 +662,25 @@ function openModal(p) {
   }
 
   // ABOUT column — the narrative: lead paragraph, then the write-up sections.
+  // A section can carry a video, an image, or a reserved `placeholder` slot
+  // (a framed "coming soon" media box, e.g. for a simulation clip added later).
   const sections = (p.sections || [])
-    .map(
-      (s) =>
-        `<div class="m-section"><h4>${s.title}</h4><p>${s.body}</p>${
-          s.image ? `<img src="${s.image}" alt="${s.title}" loading="lazy" />` : ""
-        }</div>`
-    )
+    .map((s) => {
+      let media = "";
+      if (s.video) {
+        media = `<video class="m-section-media" autoplay muted loop playsinline${
+          s.poster ? ` poster="${s.poster}"` : ""
+        }>${videoSourceTags(s.video)}</video>`;
+      } else if (s.image) {
+        media = `<img src="${s.image}" alt="${s.title}" loading="lazy" />`;
+      } else if (s.placeholder) {
+        media = `<div class="m-section-placeholder" role="img" aria-label="${s.placeholder}">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>
+            <span>${s.placeholder}</span>
+          </div>`;
+      }
+      return `<div class="m-section"><h4>${s.title}</h4><p>${s.body}</p>${media}</div>`;
+    })
     .join("");
 
   modalContent.innerHTML = `
