@@ -157,17 +157,30 @@ function pulseGlow(el) {
   frame();
 })();
 
-/* ---- 2. Intro: video shrinks to card size; identity text flies to corner - */
+/* ---- 2. Intro: fullscreen video shrinks down onto the front card --------- */
 (function intro() {
   const intro = document.getElementById("intro");
   const video = document.getElementById("intro-video");
   const brand = document.getElementById("brand");
   const skip = document.getElementById("intro-skip");
+
+  // Small screens collapse the brand to a PVST badge (CSS 820px block): a tap
+  // toggles the full name/title panel, tapping anywhere else dismisses it.
+  // Hover handles mouse users; this is inert on desktop (pointer-events: none).
+  if (brand) {
+    brand.addEventListener("click", (e) => {
+      e.stopPropagation();
+      brand.classList.toggle("expanded");
+    });
+    document.addEventListener("click", () => brand.classList.remove("expanded"));
+  }
+
   if (!intro) return;
 
-  const BG_REVEAL_AT = 4;      // site fades in 0.5s AFTER the shrink starts (OUTRO_AT)
-  const OUTRO_AT = 3.5;        // the video starts shrinking onto the card here...
+  const OUTRO_AT = 6;          // the video starts shrinking onto the card here...
   const OUTRO_DUR = 1.6;       // ...over this long, dissolving out as it shrinks
+  const BG_REVEAL_AT = 6.9;    // ...and the real site fades in as the first
+                               //    sprinkled stars begin to die out
 
   let done = false, shrunk = false, bgRevealed = false, outroStarted = false;
 
@@ -180,9 +193,28 @@ function pulseGlow(el) {
     intro.classList.add("bg-reveal");
   }
 
+  // Star sprinkle: as the video shrinks, individual stars pop into the black
+  // one by one (random spots, staggered), twinkle, then fade away while the
+  // real constellation background dissolves in underneath — the sprinkle
+  // hands over to the actual site bg. Layer sits BEHIND the shrinking frame.
+  function sprinkleStars() {
+    const layer = document.createElement("div");
+    layer.className = "intro-stars";
+    layer.setAttribute("aria-hidden", "true");
+    for (let i = 0; i < 46; i++) {
+      const s = document.createElement("span");
+      const size = (1.4 + Math.random() * 2.2).toFixed(1);
+      s.style.left = (Math.random() * 100).toFixed(1) + "%";
+      s.style.top = (Math.random() * 100).toFixed(1) + "%";
+      s.style.width = s.style.height = size + "px";
+      s.style.animationDelay = (Math.random() * 1.1).toFixed(2) + "s";
+      layer.appendChild(s);
+    }
+    intro.insertBefore(layer, intro.firstChild);
+  }
+
   // Shrink the fullscreen video down onto the FRONT card's exact on-screen
-  // position and size (and fly the identity text to the corner alongside it),
-  // so the product appears to settle into the card as one coordinated move.
+  // position and size, so the product appears to settle into the card.
   function shrink() {
     if (shrunk) return;
     shrunk = true;
@@ -198,7 +230,7 @@ function pulseGlow(el) {
         frame.style.transform = `translate(${dx.toFixed(1)}px, ${dy.toFixed(1)}px)`;
       }
     }
-    intro.classList.add("shrunk", "to-corner");
+    intro.classList.add("shrunk"); // collapses the frame + hides the skip pill (CSS)
   }
 
   function reveal() {
@@ -219,8 +251,9 @@ function pulseGlow(el) {
   function outro() {
     if (outroStarted) return;
     outroStarted = true;
-    shrink();                           // frame shrinks to the card + text flies to corner
+    shrink();                           // frame shrinks onto the front card
     intro.classList.add("video-fade");  // video gently dissolves out as it shrinks
+    sprinkleStars();                    // stars pop in one by one across the black
     setTimeout(reveal, OUTRO_DUR * 1000);
   }
   function finish() {
@@ -243,8 +276,9 @@ function pulseGlow(el) {
     setTimeout(outro, OUTRO_AT * 1000);
   }
 
-  // safety net in case metadata/ended never fire (e.g. autoplay blocked)
-  const maxWait = setTimeout(finish, 9000);
+  // safety net in case metadata/ended never fire (e.g. autoplay blocked) —
+  // sized for the 8s clip: 6s play + 1.6s outro + load headroom
+  const maxWait = setTimeout(finish, 11000);
 
   skip &&
     skip.addEventListener("click", () => {
@@ -393,7 +427,14 @@ function pulseGlow(el) {
 
   const N = PROJECTS.length;
   const STEP = 26;       // degrees between neighbouring cards
-  const RADIUS = 880;    // larger radius to space the bigger cards
+  // Ring radius scales with the viewport. Desktop keeps the wide 880px arc;
+  // small screens pull the ring in to 552px — the cards are 288px wide there
+  // (CSS 720px block), and 552 preserves the desktop neighbour-offset-to-card-
+  // width ratio (386/460), so the side cards still peek in from the screen
+  // edges and the cascade reads on a phone instead of hiding offscreen.
+  const ringRadius = () => (window.innerWidth <= 720 ? 552 : 880);
+  let RADIUS = ringRadius();
+  window.addEventListener("resize", () => { RADIUS = ringRadius(); });
 
   let angle = 0, goal = 0;        // current position; integer card we head to
   // time-based ease-in-out tween -> smooth, consistent glide (not a snap)
@@ -415,25 +456,49 @@ function pulseGlow(el) {
   // Auto-scroll is normally armed 3s after the intro. But when the first-run
   // guidance demo runs (section 5b) it takes over the timing: the demo calls
   // App.startAuto() once its pointer -> open-window -> close sequence is done.
-  App.startAuto = (delayMs) => { autoAt = performance.now() + (delayMs || 0); };
+  // startAuto is also the moment the cards switch from resting cover images to
+  // looping video (App.cardsLive) — every path funnels through it: demo done,
+  // demo skipped (reduced motion), user interruption, or the 12s fallback.
+  App.cardsLive = false;
+  App.startAuto = (delayMs) => { App.cardsLive = true; autoAt = performance.now() + (delayMs || 0); };
   App.holdAuto = () => { autoAt = Infinity; };
   window.addEventListener("intro:done", () => { if (!App.demoWillRun) App.startAuto(3000); });
   // fallback in case the intro never fires an event / the demo stalls
   setTimeout(() => { if (autoAt === Infinity && !App.demoRunning) App.startAuto(3000); }, 12000);
+
+  const POSTER_FADE = 500; // matches the .card-media img opacity transition (CSS)
 
   PROJECTS.forEach((p, i) => {
     const card = document.createElement("div");
     card.className = "card";
     card.style.setProperty("--card-accent", p.accent);
     card.dataset.index = i;
+    // `posterHold` cards run their own cycle (play -> cover beat -> replay), so
+    // they skip the native `loop` attribute; everyone else loops seamlessly.
     card.innerHTML = `
       <div class="card-media">
-        ${p.video ? `<video muted loop playsinline preload="metadata">${videoSourceTags(p.video)}</video>` : ""}
+        ${p.video ? `<video muted playsinline preload="auto"${p.posterHold ? "" : " loop"}>${videoSourceTags(p.video)}</video>` : ""}
         <img src="${p.poster}" alt="${p.title}" draggable="false" />
       </div>
       <div class="card-ring-accent"></div>`;
     ring.appendChild(card);
-    cards.push({ el: card, video: card.querySelector("video"), poster: card.querySelector("img") });
+    const c = { el: card, video: card.querySelector("video"), poster: card.querySelector("img"), holding: false };
+    // End-of-loop cover beat: the video runs to its last frame, the cover
+    // dissolves in and sits for `posterHold` ms, then the video restarts.
+    if (c.video && p.posterHold) {
+      c.video.addEventListener("ended", () => {
+        c.holding = true;
+        if (c.poster) c.poster.style.opacity = "1";
+        setTimeout(() => {
+          c.holding = false;
+          if (!App.cardsLive) return; // pre-live: stay on the cover
+          c.video.currentTime = 0;
+          if (c.poster) c.poster.style.opacity = "0";
+          c.video.play().catch(() => {});
+        }, p.posterHold + POSTER_FADE);
+      });
+    }
+    cards.push(c);
   });
 
   // title strip — one label per project
@@ -469,9 +534,9 @@ function pulseGlow(el) {
   const offsetOf = (i) => i - angle;
 
   function render() {
-    const moving = dragging || tweening;
     let bestI = 0, best = Infinity;
-    cards.forEach(({ el, video, poster }, i) => {
+    cards.forEach((c, i) => {
+      const { el, video, poster } = c;
       const o = offsetOf(i);
       const dist = Math.abs(o);
       const theta = (o * STEP * Math.PI) / 180;
@@ -496,11 +561,19 @@ function pulseGlow(el) {
       // side card opens its window directly; only cull the fully-faded ones
       el.style.pointerEvents = dist > 2.9 ? "none" : "auto";
       el.classList.remove("is-front");
+      // Card media: covers only while the intro + guidance demo run; once
+      // App.cardsLive flips, the videos take over and loop continuously
+      // (posterHold cards insert their cover beat via the `ended` handler).
       if (video) {
-        if (dist < 2.4) {
-          if (dist < 0.25 && !moving) { video.pause(); if (poster) poster.style.opacity = "1"; }
-          else { if (video.paused) video.play().catch(() => {}); if (poster) poster.style.opacity = "0"; }
-        } else { video.pause(); if (poster) poster.style.opacity = "1"; }
+        if (!App.cardsLive) {
+          video.pause();
+          if (poster) poster.style.opacity = "1";
+        } else if (dist > 2.9) {
+          video.pause(); // fully culled — invisible, save the decode work
+        } else if (!c.holding) {
+          if (video.paused && !video.ended) video.play().catch(() => {});
+          if (poster) poster.style.opacity = "0";
+        }
       }
       if (dist < best) { best = dist; bestI = i; }
     });
@@ -788,10 +861,14 @@ window.addEventListener("keydown", (e) => e.key === "Escape" && closeModal());
     cursor = document.createElement("div");
     cursor.className = "demo-cursor";
     cursor.setAttribute("aria-hidden", "true");
+    // A real 3D robot-hand render (transparent PNG) pointing at the card.
+    // The extended fingertip is the hotspot — margins in CSS place it exactly
+    // on the click point. Each click fires a soft luminous splash at the tip
+    // plus one blurred wavefront that spreads and dissolves.
     cursor.innerHTML =
-      '<svg viewBox="0 0 24 24" class="demo-cursor-arrow">' +
-      '<path d="M5 2.5 L5 18.5 L9.4 14.3 L12.4 20.8 L15 19.6 L12 13.2 L18 13.2 Z"/></svg>' +
-      '<span class="demo-cursor-ring"></span>';
+      '<img class="demo-cursor-hand" src="assets/img/cursor-hand.png" alt="" draggable="false" />' +
+      '<span class="demo-cursor-splash"></span>' +
+      '<span class="demo-cursor-wave"></span>';
     document.body.appendChild(cursor);
 
     // enter from just below-right of the card, then glide onto it
@@ -806,17 +883,17 @@ window.addEventListener("keydown", (e) => e.key === "Escape" && closeModal());
       cursor.classList.add("show");
       cursor.style.transform = `translate(${tx}px, ${ty}px)`;
     });
-    at(840, () => cursor && cursor.classList.add("click")); // press + ripple on the card
-    at(990, () => {                                          // the click pops the window open
+    at(840, () => cursor && cursor.classList.add("click")); // press + water ripple on the card
+    at(1120, () => {                                         // ripple blooms, THEN the window opens
       if (finished) return;
       const i = App.getCard ? App.getCard() : 0;
       openModal(PROJECTS[i] || PROJECTS[0]);
       cursor && cursor.classList.add("fade");               // hide the pointer while the window is up
     });
-    at(1240, () => cursor && cursor.classList.remove("click"));
+    at(1470, () => cursor && cursor.classList.remove("click"));
 
     // travel back up to the close (×) button and click it to dismiss
-    at(2150, () => {
+    at(2280, () => {
       if (finished || !cursor) return;
       const close = document.getElementById("modal-close");
       const c = close && close.getBoundingClientRect();
@@ -826,13 +903,13 @@ window.addEventListener("keydown", (e) => e.key === "Escape" && closeModal());
       cursor.classList.add("show");
       cursor.style.transform = `translate(${cx}px, ${cy}px)`;
     });
-    at(2950, () => cursor && cursor.classList.add("click")); // press + ripple on the ×
-    at(3090, () => {                                         // window disappears, cards settle back
+    at(3080, () => cursor && cursor.classList.add("click")); // press + ripple on the ×
+    at(3360, () => {                                         // window disappears, cards settle back
       if (!finished) closeModal();
       cursor && cursor.classList.add("fade");
     });
-    at(3420, () => cursor && cursor.classList.remove("click"));
-    at(3700, () => finishOnce(500));                         // rest ~2s, then auto-cascade
+    at(3700, () => cursor && cursor.classList.remove("click"));
+    at(3960, () => finishOnce(500));                         // rest ~2s, then auto-cascade
   }
 
   window.addEventListener("intro:done", () => at(500, run));

@@ -17,52 +17,63 @@
 // the visible set, in order — so parked projects are stored but not shown.
 const ALL_PROJECTS = [
   {
+    // Public stand-in for the master thesis: the 7-DOF thesis footage can't be
+    // published, so this card shows the Cooka SCARA robot — same control
+    // architecture, different kinematics.
     id: "robotic-arm",
-    title: "7-DOF Robotic Arm",
-    tagline: "Master Thesis · Custom actuated hardware, brought up in ROS 2",
+    title: "Cooka SCARA Robot",
+    tagline: "Custom SCARA — the control architecture of my master thesis",
     category: "Robotics / Mechatronics",
     year: "2026",
     accent: "#4da3ff",
-    // Real photo of the built robot, cropped/framed to match the CAD
-    // render's final pose so the video -> poster handoff reads as one
-    // continuous shot rather than a hard cut.
+    // Real photo of the built robot — the intro video shrinks onto this cover,
+    // and the card loop dissolves back to it between passes.
     poster: "assets/img/robotic-arm-photo.jpg",
-    // Real alpha render (VP9/WebM, transparent) tried first; robot.mp4 is the
-    // opaque (black-bg) fallback for browsers that can't decode VP9 alpha.
-    video: ["assets/video/robot.webm", "assets/video/robot.mp4"],
+    // Same render as the startup video. Plays to the end, then the cover
+    // holds for ~0.5 s (posterHold) before the loop restarts.
+    video: "assets/video/intro-scara.mp4",
+    posterHold: 500,
     model: "assets/models/Cooka.glb", // real GLB — shows in the modal's 3D viewer
     // starting camera for the 3D viewer (azimuth polar radius) — a 3/4 hero angle
     cameraOrbit: "25deg 74deg auto",
     hero:
-      "A ground-up 7-DOF arm — 10 kg payload, < 20 arcmin backlash — sized " +
-      "from simulated joint torques and brought up as a full ROS 2 stack.",
+      "A custom SCARA robot — two revolute joints and a linear axis that " +
+      "clamps payloads through a custom adapter geometry. 2 kg capacity, " +
+      "< 5 arcmin backlash, and the same CANopen / ROS 2 control " +
+      "architecture as my 7-DOF master-thesis arm.",
     specs: [
-      { label: "Degrees of freedom", value: "7-DOF" },
-      { label: "Payload", value: "10 kg" },
-      { label: "Backlash target", value: "< 20 arcmin" },
+      { label: "Configuration", value: "SCARA · 2 revolute + 1 linear" },
+      { label: "Payload", value: "2 kg" },
+      { label: "Backlash", value: "< 5 arcmin" },
       { label: "Control", value: "CANopen CiA 402" },
-      { label: "Stack", value: "ROS 2 Jazzy · ros2_control" },
-      { label: "Simulation", value: "Gazebo" },
+      { label: "Joint drives", value: "Nanotec PD4-C" },
+      { label: "End effector", value: "Waveshare ST3215 servo" },
     ],
     tags: ["ROS 2", "CANopen", "Gazebo", "ros2_control", "STM32", "Fusion 360"],
     sections: [
       {
-        title: "Sized from physics, not safety factors",
+        title: "Clamps with geometry, not grip force",
         body:
-          "Peak joint torques from a Gazebo / ros2_control dynamics sim drove " +
-          "motor and bearing selection — dimensioned to the loads they see.",
+          "The linear axis engages payloads through a custom adapter " +
+          "geometry — a positive mechanical hold rather than friction — with " +
+          "a Waveshare ST3215 servo driving the end effector.",
         image: null,
       },
       {
         title: "Synchronised multi-axis motion",
         body:
-          "CANopen CiA 402 interpolated (mode 7) and cyclic-synchronous " +
-          "(mode 8) position control — jerk-limited, every axis coordinated.",
+          "Nanotec PD4-C integrated servos under CANopen CiA 402 — " +
+          "interpolated (mode 7) and cyclic-synchronous (mode 8) position " +
+          "control, jerk-limited, every axis coordinated.",
         image: null,
       },
       {
-        title: "Tight sim-to-debug loop",
-        body: "Auto-generated Xacro, launch and package config to keep iteration fast.",
+        title: "The master-thesis architecture, downsized",
+        body:
+          "Everything above the joints — ROS 2 Jazzy, ros2_control, the " +
+          "CANopen stack and auto-generated Xacro / launch config — is the " +
+          "same architecture that runs my 7-DOF master-thesis arm, whose " +
+          "footage stays in the lab.",
         image: null,
       },
     ],
@@ -160,6 +171,8 @@ const ALL_PROJECTS = [
     // no `model` field -> the card window plays this render walkthrough in the
     // centre viewer instead of a 3D model.
     video: "assets/video/poultry-truss.mp4",
+    // Card loop: play to the end, dissolve to the cover photo, hold ~1s, replay.
+    posterHold: 1000,
     hero:
       "A 41-foot Pratt roof truss I designed and helped fabricate as a design " +
       "engineer at ISOLogic — sized in FEA, then cut, welded and machined with " +
@@ -206,7 +219,7 @@ const ALL_PROJECTS = [
     video: "assets/video/excavator-render.mp4",
     model: "assets/models/Escavator.glb",
     cameraOrbit: "-30deg 76deg auto",
-    exposure: 0.5, // lighter (yellow) model — dim the viewer so it reads naturally
+    exposure: 0.4, // lighter (yellow) model — dim the viewer so it reads naturally
     hero:
       "A full hydraulic excavator arm — boom, stick and bucket — modelled as " +
       "a working linkage and animated through its complete range of motion.",
@@ -287,7 +300,7 @@ const ALL_PROJECTS = [
     video: "assets/video/hand.mp4",
     model: "assets/models/humanoid-hand.glb",
     cameraOrbit: "15deg 78deg auto",
-    exposure: 0.5,
+    exposure: 0.4,
     hero:
       "An anthropomorphic hand whose fingers trace a human-like grasp — one " +
       "motor driving an under-actuated linkage.",
@@ -364,7 +377,7 @@ const ALL_PROJECTS = [
     video: "assets/video/lockheed-tristar.mp4",
     model: "assets/models/Lockheed.glb", // Draco-compressed (62MB -> 3MB) for web
     cameraOrbit: "35deg 68deg auto",
-    exposure: 0.5,
+    exposure: 0.4,
     hero:
       "A structural surface model of the Lockheed L-1011 TriStar — " +
       "constraint-based modelling of the real wing / fuselage / tail joinery.",
