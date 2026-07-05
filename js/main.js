@@ -261,6 +261,10 @@ function pulseGlow(el) {
     if (done) return;
     done = true;
     clearTimeout(maxWait);
+    // Space is only a skip key while the intro is up — release it back to
+    // the browser so it never affects the rest of the site.
+    window.removeEventListener("keydown", onSpaceDown);
+    window.removeEventListener("keyup", onSpaceUp);
     shrink(); // safety: the video must have visibly landed on the card first
     revealBg();
     brand && brand.classList.add("show");
@@ -306,9 +310,36 @@ function pulseGlow(el) {
 
   skip &&
     skip.addEventListener("click", () => {
+      App.skipDemo = true; // an explicit skip also skips the pointer tutorial
       clearTimeout(maxWait);
       finish();
     });
+
+  // Hold SPACE for 1s to skip: .holding drives the pill's fill (CSS); the
+  // timer fires the actual skip. Released early -> timer cancelled and the
+  // fill drains back. preventDefault keeps Space from scrolling the page or
+  // click-activating the focused button; reveal() removes both listeners.
+  let spaceTimer = null;
+  function onSpaceDown(e) {
+    if (e.code !== "Space") return;
+    e.preventDefault();
+    if (e.repeat || spaceTimer) return;
+    skip && skip.classList.add("holding");
+    spaceTimer = setTimeout(() => {
+      App.skipDemo = true; // an explicit skip also skips the pointer tutorial
+      clearTimeout(maxWait);
+      finish();
+    }, 1000);
+  }
+  function onSpaceUp(e) {
+    if (e.code !== "Space") return;
+    e.preventDefault();
+    clearTimeout(spaceTimer);
+    spaceTimer = null;
+    skip && skip.classList.remove("holding");
+  }
+  window.addEventListener("keydown", onSpaceDown);
+  window.addEventListener("keyup", onSpaceUp);
 })();
 
 /* ---- 3. Navigation & curved page transitions ---------------------------- */
@@ -501,7 +532,6 @@ function pulseGlow(el) {
   PROJECTS.forEach((p, i) => {
     const card = document.createElement("div");
     card.className = "card";
-    card.style.setProperty("--card-accent", p.accent);
     card.dataset.index = i;
     // `posterHold` cards run their own cycle (play -> cover beat -> replay), so
     // they skip the native `loop` attribute; everyone else loops seamlessly.
@@ -510,7 +540,7 @@ function pulseGlow(el) {
         ${p.video ? `<video muted playsinline preload="metadata"${p.posterHold ? "" : " loop"}>${videoSourceTags(p.video)}</video>` : ""}
         <img src="${p.poster}" alt="${p.title}" draggable="false" />
       </div>
-      <div class="card-ring-accent"></div>`;
+      <div class="spark-ring" aria-hidden="true"></div>`;
     ring.appendChild(card);
     const c = { el: card, video: card.querySelector("video"), poster: card.querySelector("img"), holding: false };
     // End-of-loop cover beat: the video runs to its last frame, the cover
@@ -647,7 +677,7 @@ function pulseGlow(el) {
       angle = goal;                                    // resting on a card
       if (now >= autoAt && goal < N - 1) {              // stop drifting at the last card
         if (!dwellStart) dwellStart = now;
-        if (now - dwellStart >= 1500) tweenTo(goal + 1, 850); // hold 1.5s, then glide
+        if (now - dwellStart >= 2500) tweenTo(goal + 1, 850); // hold 2.5s, then glide
       } else dwellStart = 0;
     }
 
@@ -740,7 +770,8 @@ const modalContent = document.getElementById("modal-content");
 const modalWindow = document.getElementById("modal-window");
 
 function openModal(p) {
-  // KEY POINTS column — the project's headline specs (+ tags below).
+  // KEY POINTS column — the project's headline specs (the tool tags render
+  // in the centred header, not here).
   const specs = (p.specs || [])
     .map(
       (s) =>
@@ -758,12 +789,13 @@ function openModal(p) {
     // used to flash before the model appeared; now the viewer shows its dark
     // frame + accent progress bar until the GLB is ready.
     viewerInner =
-      `<model-viewer src="${p.model}" alt="${p.title} 3D model"
-         camera-controls auto-rotate touch-action="pan-y" shadow-intensity="0.65"
+      `<p class="m-viewer-cap">drag to orbit · scroll to zoom</p>
+       <model-viewer src="${p.model}" alt="${p.title} 3D model"
+         camera-controls auto-rotate auto-rotate-delay="0"
+         touch-action="pan-y" shadow-intensity="0.65"
          exposure="${p.exposure != null ? p.exposure : 0.72}" tone-mapping="neutral" interaction-prompt="none"${
            p.cameraOrbit ? ` camera-orbit="${p.cameraOrbit}"` : ""
-         }></model-viewer>
-       <p class="m-viewer-cap">// Drag to orbit · scroll to zoom · GLB model</p>`;
+         }></model-viewer>`;
   } else if (p.video) {
     viewerInner =
       `<video class="m-viewer-media" autoplay muted loop playsinline poster="${p.poster}">${videoSourceTags(
@@ -797,19 +829,18 @@ function openModal(p) {
 
   modalContent.innerHTML = `
     <div class="m-head">
-      <div class="m-cat">${p.category} · ${p.year}</div>
       <h2 class="m-title">${p.title}</h2>
       <p class="m-desc">${p.tagline}</p>
+      ${tags ? `<div class="m-tags">${tags}</div>` : ""}
     </div>
     <div class="m-body">
       <aside class="m-col m-keypoints">
         <h3 class="m-col-label">Key points</h3>
         ${specs || ""}
-        ${tags ? `<div class="m-tags">${tags}</div>` : ""}
       </aside>
       <div class="m-col m-viewer">${viewerInner}</div>
       <div class="m-col m-about">
-        <h3 class="m-col-label">About the project</h3>
+        <h3 class="m-col-label">${p.aboutLabel || "About the project"}</h3>
         <p class="m-about-lead">${p.hero}</p>
         ${sections}
       </div>
@@ -951,7 +982,16 @@ window.addEventListener("keydown", (e) => e.key === "Escape" && closeModal());
     at(3960, () => finishOnce(500));                         // rest ~2s, then auto-cascade
   }
 
-  window.addEventListener("intro:done", () => at(500, run));
+  window.addEventListener("intro:done", () => {
+    // the viewer explicitly skipped the intro -> skip the tutorial too and
+    // hand straight over to the auto-cascade (same funnel the demo uses)
+    if (App.skipDemo) {
+      App.demoWillRun = false;
+      finishOnce(500);
+      return;
+    }
+    at(500, run);
+  });
 })();
 
 /* ---- 6. Horizontal timeline (chronological, alternating up/down) -------- */

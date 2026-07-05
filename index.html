@@ -44,7 +44,11 @@
       <source src="assets/video/intro-scara.mp4" type="video/mp4" />
     </video>
   </div>
-  <button class="intro-skip" id="intro-skip">Skip intro ↓</button>
+  <!-- click skips instantly; holding SPACE for 1s fills the pill, then skips
+       (released early, the fill drains back — see .intro-skip::before) -->
+  <button class="intro-skip" id="intro-skip" title="Hold Space to skip">
+    Skip intro <kbd aria-hidden="true">␣ space</kbd>
+  </button>
 </div>
 
 <!-- Persistent, minimal brand — the only place the name + title appear (top-left,
@@ -109,8 +113,13 @@
 <div id="modal-root" class="modal-root" aria-hidden="true">
   <div class="modal-backdrop" id="modal-backdrop"></div>
   <div class="modal-window" id="modal-window" role="dialog" aria-modal="true">
-    <button class="modal-close" id="modal-close" aria-label="Close">&times;</button>
+    <span class="spark-ring" aria-hidden="true"></span>
     <div class="modal-content" id="modal-content"><!-- injected --></div>
+    <!-- last in DOM so it can be position:sticky on small screens (the window
+         scrolls as one column there) — always reachable at the bottom middle -->
+    <button class="modal-close" id="modal-close" aria-label="Close">
+      <span class="mc-x" aria-hidden="true">&times;</span> Close
+    </button>
   </div>
 </div>
 

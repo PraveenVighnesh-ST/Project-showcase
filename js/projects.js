@@ -22,10 +22,11 @@ const ALL_PROJECTS = [
     // published, so this card shows the Cooka SCARA robot — same control
     // architecture, different kinematics.
     id: "robotic-arm",
-    title: "Cooka SCARA Robot",
-    tagline: "Custom SCARA — the control architecture of my master thesis",
+    title: "Cooka — A SCARA Robot",
+    tagline: "A low-backlash SCARA with a 2 kg payload and absolute position encoders",
     category: "Robotics / Mechatronics",
     year: "2026",
+    aboutLabel: "System architecture", // replaces the default "About the project"
     accent: "#4da3ff",
     // Real photo of the built robot — the intro video shrinks onto this cover,
     // and the card loop dissolves back to it between passes.
@@ -35,46 +36,56 @@ const ALL_PROJECTS = [
     video: "assets/video/intro-scara.mp4",
     posterHold: 500,
     model: "assets/models/Cooka.glb", // real GLB — shows in the modal's 3D viewer
-    // starting camera for the 3D viewer (azimuth polar radius) — a 3/4 hero angle
-    cameraOrbit: "25deg 74deg auto",
+    // starting camera (azimuth polar radius) — 3/4 hero angle; 80% radius sits
+    // the camera closer than auto-framing, so the model reads ~25% larger
+    cameraOrbit: "25deg 74deg 80%",
     hero:
-      "A custom SCARA robot — two revolute joints and a linear axis that " +
-      "clamps payloads through a custom adapter geometry. 2 kg capacity, " +
-      "< 5 arcmin backlash, and the same CANopen / ROS 2 control " +
-      "architecture as my 7-DOF master-thesis arm.",
+      "A custom SCARA manipulator engineered end to end — mechanical " +
+      "design, hardware integration, simulation and deterministic " +
+      "multi-axis control — with one ROS 2 software stack driving both " +
+      "the Gazebo digital twin and the physical robot.",
     specs: [
-      { label: "Configuration", value: "SCARA · 2 revolute + 1 linear" },
-      { label: "Payload", value: "2 kg" },
-      { label: "Backlash", value: "< 5 arcmin" },
-      { label: "Control", value: "CANopen CiA 402" },
-      { label: "Joint drives", value: "Nanotec PD4-C" },
-      { label: "End effector", value: "Waveshare ST3215 servo" },
+      { label: "Configuration", value: "2R + Linear Y + EE" },
+      { label: "Control stack", value: "ROS 2 · ros2_control" },
+      { label: "Motion network", value: "CANopen CiA 402 daisy chain" },
+      { label: "Simulation", value: "Gazebo · RViz · Isaac Sim" },
+      { label: "Hardware", value: "Nanotec PD4-C · Waveshare ST3215" },
     ],
-    tags: ["ROS 2", "CANopen", "Gazebo", "ros2_control", "STM32", "Fusion 360"],
+    tags: ["ROS 2", "ros2_control", "CANopen", "Gazebo", "Isaac Sim", "Fusion 360"],
     sections: [
       {
-        title: "Clamps with geometry, not grip force",
+        title: "Modular control architecture",
         body:
-          "The linear axis engages payloads through a custom adapter " +
-          "geometry — a positive mechanical hold rather than friction — with " +
-          "a Waveshare ST3215 servo driving the end effector.",
+          "Layered like an industrial controller: each joint drive runs as " +
+          "an independent CANopen fieldbus node, and ros2_control exposes " +
+          "them through a standard hardware interface — axes scale and " +
+          "controllers swap without touching the rest of the stack.",
         image: null,
       },
       {
-        title: "Synchronised multi-axis motion",
+        title: "Deterministic multi-axis motion control",
         body:
-          "Nanotec PD4-C integrated servos under CANopen CiA 402 — " +
-          "interpolated (mode 7) and cyclic-synchronous (mode 8) position " +
-          "control, jerk-limited, every axis coordinated.",
+          "Axes synchronise over CANopen in interpolated position (IP) and " +
+          "cyclic synchronous position (CSP) modes, with trajectory " +
+          "generation, hardware abstraction and actuator communication kept " +
+          "as cleanly separated layers.",
         image: null,
       },
       {
-        title: "The master-thesis architecture, downsized",
+        title: "Custom mechanical design",
         body:
-          "Everything above the joints — ROS 2 Jazzy, ros2_control, the " +
-          "CANopen stack and auto-generated Xacro / launch config — is the " +
-          "same architecture that runs my 7-DOF master-thesis arm, whose " +
-          "footage stays in the lab.",
+          "The complete assembly — structural links, actuator integration " +
+          "and transmission layout — designed in Fusion 360, with a passive " +
+          "mechanical end-effector that retains the payload through " +
+          "geometry rather than friction.",
+        image: null,
+      },
+      {
+        title: "One bringup, sim to hardware",
+        body:
+          "URDF/Xacro description, TF tree, launch system and controller " +
+          "configuration — the same bringup runs the Gazebo digital twin " +
+          "and the real robot through ros2_control.",
         image: null,
       },
     ],
@@ -83,7 +94,7 @@ const ALL_PROJECTS = [
   {
     id: "generative-design",
     title: "Generative Design",
-    tagline: "Load-driven topology optimization — lighter parts, print-ready",
+    tagline: "Constraint-driven lightweight design for robotics and functional mechanical parts",
     category: "Design Optimization / DfAM",
     year: "2025",
     accent: "#37d6a7",
@@ -91,31 +102,49 @@ const ALL_PROJECTS = [
     // no `model` field -> the card window plays this video instead of a 3D viewer
     video: "assets/video/generative-design.mp4",
     hero:
-      "FEA-driven topology optimization that grows the lightest structure a " +
-      "load path allows — I use it to optimize the parts across my projects.",
+      "A repeatable optimization workflow — engineering load cases and " +
+      "constraints in, structurally efficient candidates out — validated " +
+      "with FEA and refined into manufacturable CAD.",
     specs: [
-      { label: "Method", value: "FEA topology optimization" },
-      { label: "Optimized part", value: "21 g · 19,640 mm³ (ABS)" },
-      { label: "Min safety factor", value: "2.24" },
-      { label: "Max von Mises", value: "8.95 MPa" },
-      { label: "Tool", value: "Fusion 360 · 34 iterations" },
+      { label: "Workflow", value: "Generative Design + Static FEA" },
+      { label: "Design inputs", value: "Loads · Constraints · Preserve geometry" },
+      { label: "Manufacturing", value: "DfAM for FDM printing" },
+      { label: "Validation", value: "Stress & safety-factor review" },
+      { label: "Application", value: "Robot structural components" },
     ],
-    tags: ["Fusion 360", "Topology optimization", "DfAM", "3D printing", "FEA"],
+    tags: ["Fusion 360", "Generative Design", "Topology Optimization", "DfAM", "Static FEA"],
     sections: [
       {
-        title: "Prints with zero added supports",
+        title: "Constraint-driven optimization",
         body:
-          "The optimized legs carry their own support geometry, so the slicer " +
-          "adds none — a full set prints in 2 h 35 m with barely any waste, " +
-          "orientation-optimised for additive manufacturing.",
+          "Functional requirements go in — load cases, constraints, preserve " +
+          "regions, obstacle geometry and manufacturing limits — instead of " +
+          "hand-carved material. The solver explores structurally efficient " +
+          "candidates from those constraints, not from predefined geometry.",
+        image: null,
+      },
+      {
+        title: "Engineering decision process",
+        body:
+          "Candidates are judged on mass reduction, stress distribution, " +
+          "displacement, safety factor and manufacturability before one is " +
+          "selected — then refined into production-ready CAD where needed.",
+        image: null,
+      },
+      {
+        title: "Design for additive manufacturing",
+        body:
+          "Studies are configured with additive constraints from the start: " +
+          "minimal support material, deliberate print orientation, and " +
+          "self-supporting geometry suited to FDM fabrication.",
         image: "assets/img/generative-design-print.jpg",
       },
       {
-        title: "Applied across every design",
+        title: "Lightweight robotics components",
         body:
-          "Fusion's generative engine tests thousands of FEA-driven candidates " +
-          "and keeps only the material the loads need — the same method that " +
-          "takes industry brackets 40% lighter and 20% stronger.",
+          "Applied across the mechanical parts in my robotics projects to cut " +
+          "moving mass while keeping stiffness and functional interfaces — " +
+          "better dynamic performance without sacrificing strength.",
         image: null,
       },
     ],
@@ -123,40 +152,60 @@ const ALL_PROJECTS = [
 
   {
     id: "spot",
-    title: "Boston Dynamics Spot",
-    tagline: "High-fidelity reconstruction from orthographic references",
+    title: "Reference-Based Quadruped Modeling",
+    tagline: "Reference-based CAD reconstruction from orthographic views",
     category: "CAD / Reverse Engineering",
     year: "2024",
     accent: "#9aa3b2",
     poster: "assets/img/spot-cover.jpg",
-    video: "assets/video/spot.mp4",
+    video: "assets/video/quadruped.mp4",
     model: "assets/models/Spot.glb",
-    cameraOrbit: "30deg 78deg auto",
+    cameraOrbit: "30deg 78deg 80%", // 80% radius -> model ~25% larger than auto
     hero:
-      "A high-fidelity CAD reconstruction of Boston Dynamics' Spot, built " +
-      "purely from orthographic references — sketching, tolerance and how a " +
-      "mechanism's parts actually interact.",
+      "A complete quadruped robot — inspired by Boston Dynamics' Spot — " +
+      "reverse-engineered into CAD purely from orthographic references: " +
+      "parametric and surface modeling, a mechanism-level assembly, and " +
+      "engineering-grade visualization.",
     specs: [
-      { label: "Method", value: "Orthographic reconstruction" },
-      { label: "Articulation", value: "4 legs × 3-DOF (12-DOF)" },
-      { label: "Tool", value: "Fusion 360" },
-      { label: "Reference platform", value: "14 kg payload · 1.6 m/s" },
+      { label: "Modeling method", value: "Orthographic reference modeling" },
+      { label: "CAD workflow", value: "Parametric + surface modeling" },
+      { label: "Assembly", value: "Multi-part mechanical assembly" },
+      { label: "Visualization", value: "Blender & KeyShot" },
+      { label: "Focus", value: "Reference-based reverse engineering" },
     ],
-    tags: ["Fusion 360", "Surface modelling", "Assembly design", "GD&T"],
+    tags: ["Fusion 360", "Reverse Engineering", "Surface Modeling", "Assembly Design", "Visualization"],
     sections: [
       {
-        title: "Flat views → working assembly",
+        title: "Orthographic reference modeling",
         body:
-          "Front / side / top references → fully-defined sketches → an assembly " +
-          "whose legs articulate with correct clearances, not just a shell.",
+          "The full model was reconstructed from front, side and top-view " +
+          "references — translating 2D geometry into fully defined solids by " +
+          "interpreting spatial relationships and proportions, not by " +
+          "importing existing CAD data.",
+        image: "assets/img/spot-front.png",
+      },
+      {
+        title: "Assembly-driven design",
+        body:
+          "Built as a functional assembly rather than independent parts: " +
+          "joint locations, mating interfaces, clearances and mechanical " +
+          "relationships were defined throughout the design process.",
         image: "assets/img/spot-2.png",
       },
       {
-        title: "Tolerance-aware detailing",
+        title: "Surface & form development",
         body:
-          "Mating features modelled to real fits — parts that could plausibly " +
-          "be manufactured and assembled, not merely intersect in CAD.",
-        image: "assets/img/spot-front.png",
+          "Fusion 360's surface and sculpting tools shaped the complex " +
+          "external geometry while keeping smooth transitions, manufacturable " +
+          "topology and clean parametric features.",
+        image: null,
+      },
+      {
+        title: "Engineering visualization",
+        body:
+          "The finished assembly was prepared for technical communication — " +
+          "animated in Blender and rendered photorealistically in KeyShot.",
+        image: null,
       },
     ],
   },
@@ -210,38 +259,119 @@ const ALL_PROJECTS = [
   },
 
   {
+    id: "racking-machine",
+    title: "Racking Machine",
+    tagline: "A low-cost litter raking machine for poultry sheds",
+    category: "Machine Design",
+    year: "2022",
+    accent: "#c96a4f",
+    poster: "assets/img/racking-machine-cover.jpg",
+    // no `model` field -> the card window plays this chassis walkaround in the
+    // centre viewer. The clip ends on the cover frame, so the card loops clean.
+    video: "assets/video/racking-machine.mp4",
+    hero:
+      "A hand-pushed floor-raking machine for poultry sheds: a spinning " +
+      "rear rotavator breaks up caked litter to keep the bedding dry and " +
+      "friable — built from aluminium square pipe and sheet so a small " +
+      "farm can actually afford one.",
+    specs: [
+      { label: "Function", value: "Litter de-caking & aeration" },
+      { label: "Mechanism", value: "Rear rotavator with raking tines" },
+      { label: "Construction", value: "Aluminium square pipe + sheet" },
+      { label: "Design driver", value: "Low-cost, small-farm build" },
+      { label: "Tool", value: "Fusion 360" },
+    ],
+    tags: ["Fusion 360", "Machine Design", "Sheet Metal", "Cost-Driven Design", "Farm Equipment"],
+    sections: [
+      {
+        title: "The problem: caked litter",
+        body:
+          "In a poultry shed, droppings and moisture compact the bedding " +
+          "into a hard cake. Trapped moisture releases ammonia, which burns " +
+          "footpads and stresses the birds, while pathogens thrive in the " +
+          "damp layer. Tractor-drawn de-caking machines exist — but they're " +
+          "priced for industrial farms, so small sheds rake by hand.",
+        image: null,
+      },
+      {
+        title: "A rotavator does the raking",
+        body:
+          "As the cart is pushed, the tined rotavator at the rear spins " +
+          "through the bedding — breaking the cake and turning the litter " +
+          "so trapped moisture can evaporate and the floor returns to a " +
+          "dry, friable state between flocks.",
+        image: null,
+      },
+      {
+        title: "Built to cost",
+        body:
+          "The chassis is aluminium square pipe with sheet guards: light " +
+          "enough to push all day, corrosion-resistant in the humid, " +
+          "ammonia-laden shed air, and cheap to fabricate with basic " +
+          "cutting and welding.",
+        image: null,
+      },
+    ],
+  },
+
+  {
     id: "excavator",
-    title: "Excavator Arm",
-    tagline: "Hydraulic arm assembly — kinematics & mechanism design",
-    category: "Mechanism Design",
+    title: "Excavator — Mechanism Design",
+    tagline: "Excavator with ROPS & OPG",
+    category: "Mechanism Design / Kinematics",
     year: "2024",
     accent: "#ffb347",
     poster: "assets/img/excavator-cover.jpg",
     video: "assets/video/excavator-render.mp4",
     model: "assets/models/Escavator.glb",
-    cameraOrbit: "-30deg 76deg auto",
-    exposure: 0.4, // lighter (yellow) model — dim the viewer so it reads naturally
+    cameraOrbit: "-30deg 76deg 80%", // 80% radius -> model ~25% larger than auto
+    exposure: 0.3, // lighter (yellow) model — dim the viewer so it reads naturally
     hero:
-      "A full hydraulic excavator arm — boom, stick and bucket — modelled as " +
-      "a working linkage and animated through its complete range of motion.",
+      "A complete excavator developed as a mechanism-design exercise: an " +
+      "articulated digging linkage with realistic pivots and cylinder " +
+      "placement, organised as a large multi-part assembly, validated in " +
+      "motion and documented in dimensioned engineering drawings.",
     specs: [
-      { label: "Mechanism", value: "3-stage hydraulic linkage" },
-      { label: "Motion", value: "3-DOF (boom · stick · bucket)" },
-      { label: "Tool", value: "Fusion 360" },
-      { label: "Output", value: "Motion study + drawings" },
+      { label: "Modeling method", value: "Reference-based CAD modeling" },
+      { label: "Assembly", value: "Large multi-part assembly" },
+      { label: "Mechanisms", value: "Hydraulic linkage design" },
+      { label: "Documentation", value: "Engineering drawings" },
+      { label: "Validation", value: "Motion & interference study" },
     ],
-    tags: ["Fusion 360", "Kinematics", "Linkage design", "Motion study"],
+    tags: ["Fusion 360", "Mechanism Design", "Assembly Modeling", "Engineering Drawings", "Motion Study"],
     sections: [
       {
-        title: "A linkage that actually moves",
+        title: "Reference-based assembly modeling",
         body:
-          "Jointed as a real hydraulic linkage so it sweeps the full working " +
-          "envelope — the fastest way to catch interference and load paths.",
+          "Chassis, crawler tracks, upper structure, ROPS, boom, stick and " +
+          "bucket were each reconstructed from orthographic references and " +
+          "organised into a structured assembly — defined part hierarchy, " +
+          "subassemblies, mating relationships and clearances.",
+        image: null,
+      },
+      {
+        title: "Mechanism & kinematic design",
+        body:
+          "The boom, stick and bucket form an articulated linkage with " +
+          "realistic pivot locations and hydraulic cylinder placement, so the " +
+          "complete digging mechanism sweeps its operating range while " +
+          "keeping correct joint relationships.",
         image: "assets/img/excavator-2.jpg",
       },
       {
-        title: "Documented for manufacture",
-        body: "Taken through to dimensioned engineering drawings — concept to buildable.",
+        title: "Motion & interference validation",
+        body:
+          "Motion studies verified linkage movement, articulation limits and " +
+          "potential interferences before the design was signed off for " +
+          "documentation.",
+        image: null,
+      },
+      {
+        title: "Engineering documentation",
+        body:
+          "The finished model was taken through to dimensioned engineering " +
+          "drawings — tolerancing, views and annotations aimed at clear " +
+          "design communication.",
         image: "assets/img/excavator-blueprint.jpg",
       },
     ],
@@ -301,7 +431,7 @@ const ALL_PROJECTS = [
     video: "assets/video/hand.mp4",
     model: "assets/models/humanoid-hand.glb",
     cameraOrbit: "15deg 78deg auto",
-    exposure: 0.4,
+    exposure: 0.3,
     hero:
       "An anthropomorphic hand whose fingers trace a human-like grasp — one " +
       "motor driving an under-actuated linkage.",
@@ -377,8 +507,8 @@ const ALL_PROJECTS = [
     poster: "assets/img/lockheed-cover.jpg",
     video: "assets/video/lockheed-tristar.mp4",
     model: "assets/models/Lockheed.glb", // Draco-compressed (62MB -> 3MB) for web
-    cameraOrbit: "35deg 68deg auto",
-    exposure: 0.4,
+    cameraOrbit: "35deg 68deg 80%", // 80% radius -> model ~25% larger than auto
+    exposure: 0.3,
     hero:
       "A structural surface model of the Lockheed L-1011 TriStar — " +
       "constraint-based modelling of the real wing / fuselage / tail joinery.",
