@@ -1,7 +1,7 @@
 /* =============================================================================
    main.js  —  all interaction logic (dependency-free vanilla JS).
    Sections:  1 Constellation background   2 Intro   3 Nav/pages
-              4 Snap carousel               5 Modal   6 Timeline   7 About
+              4 Snap carousel   4b Asset pipeline   5 Modal   6 Timeline   7 About
    ========================================================================== */
 "use strict";
 
@@ -547,14 +547,17 @@ function pulseGlow(el) {
     card.dataset.index = i;
     // `posterHold` cards run their own cycle (play -> cover beat -> replay), so
     // they skip the native `loop` attribute; everyone else loops seamlessly.
+    // preload="none": not a byte of card video downloads until the asset
+    // pipeline (4b) or a play() asks for it — startup bandwidth stays with
+    // the intro video instead of eight parallel metadata fetches.
     card.innerHTML = `
       <div class="card-media">
-        ${p.video ? `<video muted playsinline preload="metadata"${p.posterHold ? "" : " loop"}>${videoSourceTags(p.video)}</video>` : ""}
+        ${p.video ? `<video muted playsinline preload="none"${p.posterHold ? "" : " loop"}>${videoSourceTags(p.video)}</video>` : ""}
         <img src="${p.poster}" alt="${p.title}" draggable="false" />
       </div>
       <div class="spark-ring" aria-hidden="true"></div>`;
     ring.appendChild(card);
-    const c = { el: card, video: card.querySelector("video"), poster: card.querySelector("img"), holding: false };
+    const c = { el: card, video: card.querySelector("video"), poster: card.querySelector("img"), holding: false, stalled: false };
     // End-of-loop cover beat: the video runs to its last frame, the cover
     // dissolves in and sits for `posterHold` ms, then the video restarts.
     if (c.video && p.posterHold) {
@@ -568,6 +571,17 @@ function pulseGlow(el) {
           if (c.poster) c.poster.style.opacity = "0";
           c.video.play().catch(() => {});
         }, p.posterHold + POSTER_FADE);
+      });
+    }
+    // Slow-connection guard: a playing video that runs out of buffered data
+    // ('waiting') would sit frozen on one frame — flag it so render() brings
+    // the cover back until frames flow again ('playing', or an advancing
+    // 'timeupdate' for browsers that skip the playing event after a stall).
+    if (c.video) {
+      c.video.addEventListener("waiting", () => { c.stalled = true; });
+      c.video.addEventListener("playing", () => { c.stalled = false; });
+      c.video.addEventListener("timeupdate", () => {
+        if (c.stalled && !c.video.paused) c.stalled = false;
       });
     }
     cards.push(c);
@@ -646,10 +660,12 @@ function pulseGlow(el) {
           if (poster) poster.style.opacity = "1";
         } else if (!c.holding) {
           if (video.paused && !video.ended) video.play().catch(() => {});
-          // fade the cover only once frames are actually decodable, so a
-          // still-loading video shows its cover instead of a blank card
+          // fade the cover only once frames are actually decodable — and bring
+          // it back while the stream is starved (c.stalled) — so a loading or
+          // buffering video shows its cover instead of a blank/frozen card
           if (poster)
-            poster.style.opacity = !video.paused && video.readyState >= 2 ? "0" : "1";
+            poster.style.opacity =
+              !video.paused && video.readyState >= 2 && !c.stalled ? "0" : "1";
         }
       }
       if (dist < best) { best = dist; bestI = i; }
@@ -774,12 +790,114 @@ function pulseGlow(el) {
   };
   App.getCard = function () { return Math.round(goal); };
   App.cardCount = N;
+  App.cardVideos = cards.map((c) => c.video); // the asset pipeline (4b) walks these
   // make just ONE card dip when its window is opened (called from openModal)
   App.recoilCard = function (index) {
     if (index == null || index < 0 || index >= N) return;
     recoilIndex = index;
     recoilStart = performance.now();
   };
+})();
+
+/* ---- 4b. Asset pipeline: sequential downloads for slow connections ------- */
+/* Everything heavy on the site belongs to the cards — their cover-loop videos
+   and their GLB models (Timeline/About are text-only). Left to the browser,
+   all of it used to download at once and slow connections choked; a project
+   window could sit on its progress bar for ages. Instead, one file at a time,
+   in the order a visitor meets them:
+       1. the front card's cover video, then its 3D model
+       2. the other cover videos, in carousel order
+       3. the other 3D models, in carousel order
+   Models are fetched to blob: URLs; openModal swaps them in, so a window
+   opened after its turn shows the model instantly. The queue starts once the
+   intro is over (its video owns the pipe until then) and yields while a
+   project window is open, so whatever that window streams gets the bandwidth. */
+(function assetPipeline() {
+  if (typeof PROJECTS === "undefined") return;
+
+  const modelURL = {};   // project id -> blob: URL once fully downloaded
+  const modelOwned = {}; // project id -> model-viewer is streaming it itself
+  const inflight = {};   // project id -> AbortController for the pipeline fetch
+
+  App.modelSrc = (p) => modelURL[p.id] || p.model;
+  // openModal streams a not-yet-fetched model straight from the network; the
+  // pipeline hands the file over (aborting its own copy if it was mid-fetch)
+  // so the same model is never downloaded twice in parallel.
+  App.claimModel = (p) => {
+    modelOwned[p.id] = true;
+    if (inflight[p.id]) inflight[p.id].abort();
+  };
+
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  // hold the queue while a project window is up — its GLB / section media
+  // deserve the whole pipe
+  async function modalIdle() {
+    while (document.body.classList.contains("modal-open")) await wait(500);
+  }
+
+  async function fetchModel(p) {
+    if (!p || !p.model || modelURL[p.id] || modelOwned[p.id]) return;
+    const ctrl = new AbortController();
+    inflight[p.id] = ctrl;
+    try {
+      const res = await fetch(p.model, { signal: ctrl.signal });
+      if (res.ok) modelURL[p.id] = URL.createObjectURL(await res.blob());
+    } catch (e) {
+      /* aborted (the viewer took the file) or offline — the modal simply
+         streams the original URL, exactly as it did before the pipeline */
+    }
+    delete inflight[p.id];
+  }
+
+  // Resolves once the card's <video> holds its whole file (buffered end ≈
+  // duration) — or once the browser clearly won't take more (Safari caps
+  // ahead-of-play buffering): ~8s without growth and the queue moves on,
+  // the remainder streaming on play as it always did.
+  function loadVideo(v) {
+    return new Promise((resolve) => {
+      if (!v || v.__pipelined) return resolve();
+      let poll;
+      const bufEnd = () => {
+        try { return v.buffered.length ? v.buffered.end(v.buffered.length - 1) : 0; }
+        catch (e) { return 0; }
+      };
+      const full = () => v.duration > 0 && bufEnd() >= v.duration - 0.3;
+      const check = () => { if (full()) finish(); };
+      const finish = () => {
+        v.__pipelined = true;
+        clearInterval(poll);
+        v.removeEventListener("progress", check);
+        v.removeEventListener("error", finish);
+        resolve();
+      };
+      v.addEventListener("progress", check);
+      v.addEventListener("error", finish);
+      let last = -1, parked = 0;
+      poll = setInterval(() => {
+        if (full()) return finish();
+        const end = bufEnd();
+        if (end === last) { if (++parked >= 8) finish(); }
+        else { parked = 0; last = end; }
+      }, 1000);
+      // untouched element (preload="none") -> ask the browser for the file;
+      // if render() already started it (a playing card), just watch it fill
+      if (v.readyState === 0 && v.paused) { v.preload = "auto"; v.load(); }
+      check();
+    });
+  }
+
+  let started = false;
+  async function run() {
+    if (started) return;
+    started = true;
+    const vids = App.cardVideos || [];
+    await modalIdle(); await loadVideo(vids[0]);
+    await modalIdle(); await fetchModel(PROJECTS[0]);
+    for (let i = 1; i < PROJECTS.length; i++) { await modalIdle(); await loadVideo(vids[i]); }
+    for (let i = 1; i < PROJECTS.length; i++) { await modalIdle(); await fetchModel(PROJECTS[i]); }
+  }
+  window.addEventListener("intro:done", run);
+  setTimeout(run, 12000); // no-intro / stalled-intro fallback
 })();
 
 /* ---- 5. Project detail modal -------------------------------------------- */
@@ -803,12 +921,17 @@ function openModal(p) {
   let viewerInner;
   if (p.model) {
     loadModelViewer(); // no-op if already requested (intro kicks it off early)
+    // The asset pipeline (4b) may already hold this model fully downloaded —
+    // then the viewer opens straight from the blob. Otherwise stream the
+    // original URL and tell the pipeline the file is spoken for.
+    const modelSrc = App.modelSrc ? App.modelSrc(p) : p.model;
+    if (modelSrc === p.model && App.claimModel) App.claimModel(p);
     // NOTE: deliberately no poster attr — on slow connections the cover photo
     // used to flash before the model appeared; now the viewer shows its dark
     // frame + accent progress bar until the GLB is ready.
     viewerInner =
       `<p class="m-viewer-cap">drag to orbit · scroll to zoom</p>
-       <model-viewer src="${p.model}" alt="${p.title} 3D model"
+       <model-viewer src="${modelSrc}" alt="${p.title} 3D model"
          camera-controls auto-rotate auto-rotate-delay="0"
          touch-action="pan-y" shadow-intensity="0.65"
          exposure="${p.exposure != null ? p.exposure : 0.72}" tone-mapping="neutral" interaction-prompt="none"${
