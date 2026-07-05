@@ -12,8 +12,10 @@
   --line: rgba(255, 255, 255, 0.08);
   --line-2: rgba(255, 255, 255, 0.14);
   --ink: #eef1f6;           /* primary text */
-  --ink-2: #aeb6c6;         /* secondary */
-  --ink-3: #6b7386;         /* muted */
+  --ink-2: #b9c1d1;         /* secondary */
+  --ink-3: #8790a4;         /* muted — bright enough to read over the nebula */
+  /* dark halo that lifts small text off the colourful background */
+  --legible: 0 1px 3px rgba(0, 0, 0, 0.75), 0 2px 14px rgba(0, 0, 0, 0.85);
   --accent: #4da3ff;        /* default accent (overridden per project) */
   --glass: rgba(16, 19, 27, 0.55);
   --radius: 18px;
@@ -44,12 +46,18 @@ body.modal-open { overflow: hidden; }
 #bg {
   position: fixed;
   inset: 0;
+  /* Pin to the LARGE viewport. On phones, scrolling hides/shows the browser
+     bar, which resizes the visual viewport — with plain inset:0 the box (and
+     the cover-fit nebula + star canvas inside) visibly jumped mid-scroll.
+     100vh/100lvh stay fixed at the bar-hidden size, so nothing moves. */
+  height: 100vh;
+  height: 100lvh;
   z-index: 0;
   /* Nebula artwork sits underneath; a soft dark veil keeps the glass panels
      and thin type readable; the canvas draws the interactive constellation
      stars ON TOP of it (it clears to transparent each frame). */
   background:
-    linear-gradient(rgba(4, 7, 12, 0.38), rgba(4, 7, 12, 0.38)),
+    linear-gradient(rgba(4, 7, 12, 0.5), rgba(4, 7, 12, 0.5)),
     url("../assets/img/bg-nebula.jpg") center / cover no-repeat,
     radial-gradient(130% 120% at 50% 10%, #0c1220 0%, var(--bg-0) 65%);
   overflow: hidden;
@@ -90,10 +98,10 @@ body.modal-open { overflow: hidden; }
   background: transparent;
   color: var(--ink-2);
   font-family: var(--sans);
-  font-size: 13.5px;
+  font-size: 15px;
   font-weight: 600;
   letter-spacing: 0.2px;
-  padding: 9px 18px;
+  padding: 11px 22px;
   border-radius: 999px;
   cursor: pointer;
   transition: color 0.25s, background 0.25s;
@@ -147,8 +155,8 @@ body.modal-open { overflow: hidden; }
 /* On .shrunk the fullscreen video collapses to the SAME landscape size/ratio
    as a project card (380 x 238 -> 16:10). */
 #intro.shrunk .intro-frame {
-  width: min(60vw, 460px);
-  height: min(37.6vw, 288px);   /* 460 * 238/380 = 288 -> matches card ratio */
+  width: min(60vw, 520px);
+  height: min(37.5vw, 325px);   /* 520 x 0.625 = 325 -> matches card ratio */
   border-radius: 18px;
   box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6),
     0 0 0 1px var(--line-2) inset;
@@ -253,19 +261,21 @@ body.modal-open { overflow: hidden; }
 #brand.show { opacity: 0.9; }
 #brand .b-name {
   display: block;
-  font-size: 17px;
+  font-size: 21px;
   font-weight: 800;
   letter-spacing: 1.5px;
   color: var(--ink);
+  text-shadow: var(--legible);
 }
 #brand .b-role {
   display: block;
-  margin-top: 5px;
+  margin-top: 6px;
   font-family: var(--mono);
-  font-size: 9px;             /* ~ intro name:role ratio, scaled to the corner */
+  font-size: 11px;            /* ~ intro name:role ratio, scaled to the corner */
   letter-spacing: 2.5px;
   text-transform: uppercase;
-  color: var(--ink-3);
+  color: var(--ink-2);
+  text-shadow: var(--legible);
 }
 /* PVST monogram badge — only exists on small screens (see 820px media block) */
 #brand .b-mono { display: none; }
@@ -365,9 +375,9 @@ body.modal-open { overflow: hidden; }
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 460px;                   /* matches the shrunk intro video (16:10) */
-  height: 288px;
-  margin: -144px 0 0 -230px;      /* center the card on the arc origin */
+  width: 520px;                   /* matches the shrunk intro video (16:10) */
+  height: 325px;
+  margin: -162.5px 0 0 -260px;    /* center the card on the arc origin */
   border-radius: var(--radius);
   overflow: hidden;
   background: var(--bg-1);
@@ -479,10 +489,11 @@ body.modal-open { overflow: hidden; }
 }
 .carousel-hint {
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 2px;
   text-transform: uppercase;
-  color: var(--ink-3);
+  color: var(--ink-2);
+  text-shadow: var(--legible);
   margin: 14px 0 0;
 }
 
@@ -576,9 +587,10 @@ body.modal-open { overflow: hidden; }
   left: 50%;
   transform: translateX(-50%);
   font-family: var(--mono);
-  font-size: 12px;
+  font-size: 13px;
   letter-spacing: 1px;
-  color: var(--ink-3);
+  color: var(--ink-2);
+  text-shadow: var(--legible);
   white-space: nowrap;
 }
 .tl-item.up .tl-date { top: calc(50% + 14px); }
@@ -648,10 +660,11 @@ body.modal-open { overflow: hidden; }
 
 .tl-hint {
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 2px;
   text-transform: uppercase;
-  color: var(--ink-3);
+  color: var(--ink-2);
+  text-shadow: var(--legible);
   margin: 6px 0 0;
 }
 
@@ -669,9 +682,10 @@ body.modal-open { overflow: hidden; }
 .about-lead .muted { color: var(--ink-3); }
 .about-sub {
   font-family: var(--mono);
-  font-size: 13px;
+  font-size: 14px;
   letter-spacing: 1px;
-  color: var(--ink-2);
+  color: #ccd4e2;
+  text-shadow: var(--legible);
   margin: 0 0 34px;
 }
 
@@ -1093,10 +1107,10 @@ body.modal-open #page-home .wordmark { opacity: 0; }
 .modal-window::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.28); background-clip: padding-box; }
 .m-col-label {
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 11.5px;
   letter-spacing: 2.5px;
   text-transform: uppercase;
-  color: var(--ink-3);
+  color: var(--ink-2);
   margin: 0 0 18px;
 }
 
@@ -1106,12 +1120,21 @@ body.modal-open #page-home .wordmark { opacity: 0; }
 .m-spec-label {
   display: block;
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: 10.5px;
   letter-spacing: 1.5px;
   text-transform: uppercase;
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
-.m-spec-value { display: block; font-size: 16px; font-weight: 700; margin-top: 4px; color: var(--ink); }
+/* values carry a subtle ice-blue tint + soft glow so the tool stacks
+   (ROS 2, CANopen, Gazebo, ...) stand out from the body text */
+.m-spec-value {
+  display: block;
+  font-size: 16px;
+  font-weight: 700;
+  margin-top: 4px;
+  color: #d2e3fb;
+  text-shadow: 0 0 14px rgba(130, 175, 255, 0.28);
+}
 /* tool/skill chips — a centred row in the header, under the title */
 .m-tags { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 16px; }
 .m-tag {
@@ -1123,7 +1146,7 @@ body.modal-open #page-home .wordmark { opacity: 0; }
   border-radius: 999px;
 }
 
-/* 3D viewer / media — landscape frame matching the project cards' 460×288
+/* 3D viewer / media — landscape frame matching the project cards' 520×325
    ratio, centred in the middle column (instead of stretching to fill it) */
 .m-viewer model-viewer,
 .m-viewer .m-viewer-media {
@@ -1132,7 +1155,7 @@ body.modal-open #page-home .wordmark { opacity: 0; }
      aspect-ratio actually decides the frame (videos/images already did) */
   height: auto;
   flex: 0 0 auto;
-  aspect-ratio: 460 / 288;
+  aspect-ratio: 520 / 325;
   min-height: 0;
   object-fit: cover;
   background: radial-gradient(60% 60% at 50% 40%, #12151d, var(--bg-0));
@@ -1149,9 +1172,9 @@ body.modal-open #page-home .wordmark { opacity: 0; }
 .m-viewer-cap {
   flex: 0 0 auto;
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 11.5px;
   letter-spacing: 1px;
-  color: var(--ink-3);
+  color: var(--ink-2);
   text-align: center;
   margin: 0 0 10px;
 }
@@ -1170,35 +1193,6 @@ body.modal-open #page-home .wordmark { opacity: 0; }
   border: 1px solid var(--line);
   background: var(--bg-0);
 }
-/* Reserved media slot — a framed placeholder for a clip added later
-   (e.g. an FEA simulation video). The play glyph picks up the card accent. */
-.m-section .m-section-placeholder {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  margin-top: 14px;
-  border-radius: 12px;
-  border: 1px dashed var(--line);
-  background: radial-gradient(70% 70% at 50% 45%, rgba(255, 255, 255, 0.04), transparent), var(--bg-0);
-  color: var(--ink-3);
-}
-.m-section .m-section-placeholder svg {
-  width: 30px;
-  height: 30px;
-  fill: var(--m-accent, var(--accent));
-  opacity: 0.8;
-}
-.m-section .m-section-placeholder span {
-  font-family: var(--mono);
-  font-size: 11.5px;
-  letter-spacing: 0.6px;
-  color: var(--ink-3);
-}
-
 /* Portrait / narrow: stack the columns (title, desc, key points, viewer,
    about) and let the whole window scroll vertically instead. */
 @media (max-width: 900px) {
@@ -1275,8 +1269,8 @@ body.modal-open #page-home .wordmark { opacity: 0; }
   }
   #brand:hover .b-full,
   #brand.expanded .b-full { opacity: 1; transform: translateY(0); }
-  #brand .b-name { font-size: 14px; }
-  #brand .b-role { font-size: 8px; letter-spacing: 2px; }
+  #brand .b-name { font-size: 16px; }
+  #brand .b-role { font-size: 9px; letter-spacing: 2px; }
 
   /* About page: content scrolling up under the floating nav dissolves out
      instead of colliding with it (the nav pills bottom out around ~66px). */
@@ -1288,7 +1282,7 @@ body.modal-open #page-home .wordmark { opacity: 0; }
 
 @media (max-width: 720px) {
   /* Cards scale with the phone screen (same 16:10 ratio as desktop's
-     460x288; margins keep each card centred on its arc origin). The ring
+     520x325; margins keep each card centred on its arc origin). The ring
      radius follows this width — see ringRadius() in main.js — so the side
      cards still peek in from the screen edges. */
   .card {
@@ -1313,9 +1307,9 @@ body.modal-open #page-home .wordmark { opacity: 0; }
   .m-head { padding-left: 24px; padding-right: 24px; }
   .m-col { padding-left: 24px; padding-right: 24px; }
   #nav { padding: 6px; }
-  .pill { padding: 8px 14px; font-size: 12.5px; }
-  /* the compact nav is 46px tall here — re-centre the badge on it */
-  #brand { top: 19px; }
+  .pill { padding: 9px 16px; font-size: 13.5px; }
+  /* the compact nav is ~49px tall here — re-centre the badge on it */
+  #brand { top: 20px; }
   .timeline { height: min(360px, 62vh); }
   .tl-scroll { width: 52vw; }
 }

@@ -67,14 +67,25 @@ function pulseGlow(el) {
   const MOUSE_R = 200;    // radius the cursor interacts within
   const mouse = { x: -9999, y: -9999 };
 
+  // #bg is CSS-pinned to the LARGE viewport (100lvh), so its box ignores the
+  // mobile browser bar hiding/showing while the page scrolls.
+  const bgBox = canvas.parentElement;
+
   function build() {
     DPR = Math.min(window.devicePixelRatio || 1, 2);
-    W = canvas.width = Math.floor(innerWidth * DPR);
-    H = canvas.height = Math.floor(innerHeight * DPR);
-    canvas.style.width = innerWidth + "px";
-    canvas.style.height = innerHeight + "px";
+    const vw = bgBox.clientWidth || innerWidth;
+    const vh = bgBox.clientHeight || innerHeight;
+    const bw = Math.floor(vw * DPR), bh = Math.floor(vh * DPR);
+    // Phones fire `resize` when the browser bar collapses mid-scroll. The
+    // canvas box hasn't really changed then — keep the existing stars instead
+    // of re-seeding them at new random spots (the whole web visibly jumped).
+    if (nodes.length && bw === W && bh === H) return;
+    W = canvas.width = bw;
+    H = canvas.height = bh;
+    canvas.style.width = vw + "px";
+    canvas.style.height = vh + "px";
     // density scales with area (~30% more than before), clamped for performance
-    const count = Math.max(60, Math.min(150, Math.round((innerWidth * innerHeight) / 13000)));
+    const count = Math.max(60, Math.min(150, Math.round((vw * vh) / 13000)));
     // jittered grid: one node per cell -> even coverage, no bare patches
     const cols = Math.max(1, Math.round(Math.sqrt(count * (W / H))));
     const rows = Math.ceil(count / cols);
@@ -480,15 +491,15 @@ function pulseGlow(el) {
 
   const N = PROJECTS.length;
   const STEP = 26;       // degrees between neighbouring cards
-  // Ring radius scales with the viewport. Desktop keeps the wide 880px arc.
+  // Ring radius scales with the viewport. Desktop keeps a wide 995px arc.
   // Small screens size the cards from the screen width (CSS 720px block:
   // min(88vw, 360px)) and the radius follows at 1.913x the card width — the
-  // same radius-to-card-width ratio as desktop (880/460) — so the neighbour
+  // same radius-to-card-width ratio as desktop (995/520) — so the neighbour
   // offset, peek and cascade all read identically, just scaled to the phone.
   const ringRadius = () =>
     window.innerWidth <= 720
       ? 1.913 * Math.min(0.88 * window.innerWidth, 360)
-      : 880;
+      : 995;
   let RADIUS = ringRadius();
   window.addEventListener("resize", () => { RADIUS = ringRadius(); });
 
@@ -813,8 +824,7 @@ function openModal(p) {
   }
 
   // ABOUT column — the narrative: lead paragraph, then the write-up sections.
-  // A section can carry a video, an image, or a reserved `placeholder` slot
-  // (a framed "coming soon" media box, e.g. for a simulation clip added later).
+  // A section can carry a video or an image below its text.
   const sections = (p.sections || [])
     .map((s) => {
       let media = "";
@@ -824,11 +834,6 @@ function openModal(p) {
         }>${videoSourceTags(s.video)}</video>`;
       } else if (s.image) {
         media = `<img src="${s.image}" alt="${s.title}" loading="lazy" />`;
-      } else if (s.placeholder) {
-        media = `<div class="m-section-placeholder" role="img" aria-label="${s.placeholder}">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>
-            <span>${s.placeholder}</span>
-          </div>`;
       }
       return `<div class="m-section"><h4>${s.title}</h4><p>${s.body}</p>${media}</div>`;
     })
