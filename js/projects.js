@@ -5,8 +5,9 @@
    - Each object in PROJECTS is one card in the carousel + one detail window.
    - To swap a placeholder for your real render, drop the file into assets/img
      (or assets/video) and update the `poster` / `video` path below.
-   - `video` plays on hover and freezes to `poster` on mouse-out. Set to null
-     if the project has no video yet.
+   - `video` loops in the card once the intro + guidance demo finish; projects
+     with `posterHold` dissolve to their cover between passes. Set to null if
+     the project has no video yet.
    - `sections` render as the Apple-style stacked blocks in the detail window.
    - `model` (optional) is a path to a .glb file shown in the interactive
      3D viewer. Leave it out (or null) to hide the viewer for that project.

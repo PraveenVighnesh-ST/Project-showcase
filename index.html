@@ -6,12 +6,9 @@
   content="Portfolio of Praveen Vighnesh S T — mechatronics & robotics engineer. Actuated hardware, ROS 2, CANopen, and product design at the intersection of robotics and electromobility."
 />
 
-<!-- The ONE 3D dependency: Google's <model-viewer> web component for GLB files.
-     Loaded from a CDN; everything else on this site is dependency-free. -->
-<script
-  type="module"
-  src="https://cdn.jsdelivr.net/npm/@google/model-viewer@3.5.0/dist/model-viewer.min.js"
-></script>
+<!-- The ONE 3D dependency — Google's <model-viewer> web component for GLB
+     files — is injected lazily by main.js (loadModelViewer) a moment into the
+     intro, so it never competes with the intro video for startup bandwidth. -->
 
 <link rel="stylesheet" href="css/style.css" />
 

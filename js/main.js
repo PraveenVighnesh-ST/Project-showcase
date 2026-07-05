@@ -8,9 +8,23 @@
 const PALETTE = ["#4da3ff", "#37d6a7", "#ff8a5b", "#c07bff", "#ffd24d", "#5fb0d8"];
 
 // Video field can be one path (string) or several, tried in order (array) —
-// e.g. an alpha .webm first, with an opaque .mp4 fallback for browsers that
-// can't decode it. Renders <source> tags so the <video> picks what it can play.
+// kept for format fallbacks (e.g. an iOS HEVC .mov beside a .webm). Renders
+// <source> tags so the <video> picks the first format it can play.
 const VIDEO_MIME = { webm: "video/webm", mp4: "video/mp4", mov: "video/quicktime" };
+
+// <model-viewer> (the site's ONE dependency) is injected lazily so its module
+// never competes with the intro video for startup bandwidth. The intro kicks
+// it off a couple of seconds in; openModal also calls it as an idempotent
+// safety net, so a modal opened early still gets its 3D viewer.
+let mvRequested = false;
+function loadModelViewer() {
+  if (mvRequested || window.customElements.get("model-viewer")) return;
+  mvRequested = true;
+  const s = document.createElement("script");
+  s.type = "module";
+  s.src = "https://cdn.jsdelivr.net/npm/@google/model-viewer@3.5.0/dist/model-viewer.min.js";
+  document.head.appendChild(s);
+}
 function videoSourceTags(video) {
   if (!video) return "";
   const list = Array.isArray(video) ? video : [video];
@@ -93,6 +107,9 @@ function pulseGlow(el) {
   const mouseR = () => MOUSE_R * DPR;
 
   function frame() {
+    // idle while hidden behind the opaque intro (the intro module flips
+    // App.bgLive on background reveal; true/undefined means "draw")
+    if (App.bgLive === false) { requestAnimationFrame(frame); return; }
     ctx.clearRect(0, 0, W, H);
     const L = linkPx(), MR = mouseR();
 
@@ -175,7 +192,13 @@ function pulseGlow(el) {
     document.addEventListener("click", () => brand.classList.remove("expanded"));
   }
 
-  if (!intro) return;
+  if (!intro) { loadModelViewer(); return; }
+
+  // The constellation canvas is invisible behind the opaque intro — skip its
+  // drawing (App.bgLive, checked each frame) until the background reveals.
+  App.bgLive = false;
+  // fetch the 3D-viewer module once the intro video is comfortably streaming
+  setTimeout(loadModelViewer, 2500);
 
   const OUTRO_AT = 6;          // the video starts shrinking onto the card here...
   const OUTRO_DUR = 1.6;       // ...over this long, dissolving out as it shrinks
@@ -190,6 +213,7 @@ function pulseGlow(el) {
   function revealBg() {
     if (bgRevealed) return;
     bgRevealed = true;
+    App.bgLive = true; // wake the constellation canvas (it was skipping frames)
     intro.classList.add("bg-reveal");
   }
 
@@ -468,6 +492,12 @@ function pulseGlow(el) {
 
   const POSTER_FADE = 500; // matches the .card-media img opacity transition (CSS)
 
+  // How far from the front a card keeps its video PLAYING. Phones get a tight
+  // budget (front card + one neighbour each side): mobile browsers only allow
+  // a few simultaneous video decoders, and exceeding that evicts one mid-play,
+  // which blanks its card. Farther cards rest on their covers instead.
+  const playDist = () => (window.innerWidth <= 720 ? 1.5 : 2.9);
+
   PROJECTS.forEach((p, i) => {
     const card = document.createElement("div");
     card.className = "card";
@@ -477,7 +507,7 @@ function pulseGlow(el) {
     // they skip the native `loop` attribute; everyone else loops seamlessly.
     card.innerHTML = `
       <div class="card-media">
-        ${p.video ? `<video muted playsinline preload="auto"${p.posterHold ? "" : " loop"}>${videoSourceTags(p.video)}</video>` : ""}
+        ${p.video ? `<video muted playsinline preload="metadata"${p.posterHold ? "" : " loop"}>${videoSourceTags(p.video)}</video>` : ""}
         <img src="${p.poster}" alt="${p.title}" draggable="false" />
       </div>
       <div class="card-ring-accent"></div>`;
@@ -568,11 +598,16 @@ function pulseGlow(el) {
         if (!App.cardsLive) {
           video.pause();
           if (poster) poster.style.opacity = "1";
-        } else if (dist > 2.9) {
-          video.pause(); // fully culled — invisible, save the decode work
+        } else if (dist > playDist()) {
+          // out of the decode budget (or fully culled) — rest on the cover
+          video.pause();
+          if (poster) poster.style.opacity = "1";
         } else if (!c.holding) {
           if (video.paused && !video.ended) video.play().catch(() => {});
-          if (poster) poster.style.opacity = "0";
+          // fade the cover only once frames are actually decodable, so a
+          // still-loading video shows its cover instead of a blank card
+          if (poster)
+            poster.style.opacity = !video.paused && video.readyState >= 2 ? "0" : "1";
         }
       }
       if (dist < best) { best = dist; bestI = i; }
@@ -718,8 +753,12 @@ function openModal(p) {
   // video (looping) or its poster image, so the middle is always a visual.
   let viewerInner;
   if (p.model) {
+    loadModelViewer(); // no-op if already requested (intro kicks it off early)
+    // NOTE: deliberately no poster attr — on slow connections the cover photo
+    // used to flash before the model appeared; now the viewer shows its dark
+    // frame + accent progress bar until the GLB is ready.
     viewerInner =
-      `<model-viewer src="${p.model}" poster="${p.poster}" alt="${p.title} 3D model"
+      `<model-viewer src="${p.model}" alt="${p.title} 3D model"
          camera-controls auto-rotate touch-action="pan-y" shadow-intensity="0.65"
          exposure="${p.exposure != null ? p.exposure : 0.72}" tone-mapping="neutral" interaction-prompt="none"${
            p.cameraOrbit ? ` camera-orbit="${p.cameraOrbit}"` : ""
@@ -809,8 +848,8 @@ document.getElementById("modal-backdrop").addEventListener("click", closeModal);
 window.addEventListener("keydown", (e) => e.key === "Escape" && closeModal());
 
 /* ---- 5b. First-run guidance gesture ------------------------------------- */
-/* Once the site settles after the intro, a minimalist pointer glides onto the
-   front card and "clicks" it (press + ripple) to pop its window open; the
+/* Once the site settles after the intro, a robot-hand pointer glides onto the
+   front card and "clicks" it (press + light pulse) to pop its window open; the
    window then closes smoothly, the cards rest at centre ~2s, and only then
    does the auto-cascade begin. Skipped for prefers-reduced-motion users. */
 (function guidanceDemo() {
@@ -883,8 +922,8 @@ window.addEventListener("keydown", (e) => e.key === "Escape" && closeModal());
       cursor.classList.add("show");
       cursor.style.transform = `translate(${tx}px, ${ty}px)`;
     });
-    at(840, () => cursor && cursor.classList.add("click")); // press + water ripple on the card
-    at(1120, () => {                                         // ripple blooms, THEN the window opens
+    at(840, () => cursor && cursor.classList.add("click")); // press + light pulse on the card
+    at(1120, () => {                                         // pulse blooms, THEN the window opens
       if (finished) return;
       const i = App.getCard ? App.getCard() : 0;
       openModal(PROJECTS[i] || PROJECTS[0]);

@@ -84,19 +84,6 @@ body.modal-open { overflow: hidden; }
     inset 0 1px 0 rgba(255, 255, 255, 0.22),
     inset 0 -6px 18px rgba(120, 150, 180, 0.08);
 }
-.brand {
-  display: flex;
-  align-items: baseline;
-  gap: 3px;
-  background: none;
-  border: 0;
-  cursor: pointer;
-  color: var(--ink);
-  font-weight: 800;
-  letter-spacing: 1px;
-}
-.brand-mark { font-size: 16px; }
-.brand-sub { font-size: 11px; color: var(--ink-3); }
 .nav-pills { display: flex; gap: 4px; }
 .pill {
   border: 0;
@@ -1042,6 +1029,11 @@ body[data-page="about"] .side-scroll { opacity: 1; pointer-events: auto; }
   border: 1px solid var(--line);
   border-radius: 18px;
   --poster-color: transparent;
+  /* while the GLB streams in, the only loading cue is this slim accent bar
+     across the top of the dark viewer frame (no cover-photo flash) */
+  --progress-bar-color: var(--m-accent, #4da3ff);
+  --progress-bar-height: 3px;
+  --progress-mask: none;
 }
 .m-viewer-cap {
   flex: 0 0 auto;
