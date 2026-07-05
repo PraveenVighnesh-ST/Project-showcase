@@ -589,8 +589,28 @@ const ALL_PROJECTS = [
   },
 ];
 
-// The visible carousel = only projects that have real media (not `hidden`).
-const PROJECTS = ALL_PROJECTS.filter((p) => !p.hidden);
+// Carousel order, left to right — edit this list to rearrange the cards.
+// Ids not listed here (e.g. future cards) simply follow after, in file order.
+const CARD_ORDER = [
+  "robotic-arm",     // Cooka — A SCARA Robot
+  "robot-hand",      // Anthropomorphic hand
+  "excavator",
+  "poultry-farm",
+  "generative-design",
+  "racking-machine",
+  "spot",            // Reference-Based Quadruped Modeling
+  "lockheed",
+];
+
+// The visible carousel = only projects that have real media (not `hidden`),
+// arranged by CARD_ORDER (a stable sort, so unlisted ids keep file order).
+const PROJECTS = ALL_PROJECTS.filter((p) => !p.hidden).sort((a, b) => {
+  const rank = (p) => {
+    const i = CARD_ORDER.indexOf(p.id);
+    return i === -1 ? CARD_ORDER.length : i;
+  };
+  return rank(a) - rank(b);
+});
 
 /* ---- Timeline: education + experience (newest first) --------------------- */
 const TIMELINE = [

@@ -172,6 +172,7 @@ body.modal-open { overflow: hidden; }
   font-size: 11px;
   letter-spacing: 2px;
   text-transform: uppercase;
+  white-space: nowrap; /* label + keycap stay on one line inside the pill */
   cursor: pointer;
   opacity: 0;
   transition: opacity 0.6s 0.6s var(--ease), color 0.2s, border-color 0.2s;
@@ -1286,7 +1287,27 @@ body.modal-open #page-home .wordmark { opacity: 0; }
 }
 
 @media (max-width: 720px) {
-  .card { width: 288px; height: 180px; margin: -90px 0 0 -144px; }
+  /* Cards scale with the phone screen (same 16:10 ratio as desktop's
+     460x288; margins keep each card centred on its arc origin). The ring
+     radius follows this width — see ringRadius() in main.js — so the side
+     cards still peek in from the screen edges. */
+  .card {
+    --cw: min(88vw, 360px);
+    width: var(--cw);
+    height: calc(var(--cw) * 0.625);
+    margin: calc(var(--cw) * -0.3125) 0 0 calc(var(--cw) * -0.5);
+  }
+  /* portrait phones: letterbox the landscape intro video (full frame as a
+     centred cinematic band) instead of cropping ~70% of it away */
+  .intro-video { object-fit: contain; }
+  /* no spacebar on a phone -> drop the keycap (it wrapped out of the pill) */
+  .intro-skip kbd { display: none; }
+  /* fallback shrink target matches the mobile card size (shrink() normally
+     measures the real card and overrides this with inline styles) */
+  #intro.shrunk .intro-frame {
+    width: min(88vw, 360px);
+    height: calc(min(88vw, 360px) * 0.625);
+  }
   .wordmark { font-size: 22vw; bottom: 2vh; }
   .skill-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .m-head { padding-left: 24px; padding-right: 24px; }

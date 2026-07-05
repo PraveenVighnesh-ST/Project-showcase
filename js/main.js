@@ -310,7 +310,6 @@ function pulseGlow(el) {
 
   skip &&
     skip.addEventListener("click", () => {
-      App.skipDemo = true; // an explicit skip also skips the pointer tutorial
       clearTimeout(maxWait);
       finish();
     });
@@ -326,7 +325,6 @@ function pulseGlow(el) {
     if (e.repeat || spaceTimer) return;
     skip && skip.classList.add("holding");
     spaceTimer = setTimeout(() => {
-      App.skipDemo = true; // an explicit skip also skips the pointer tutorial
       clearTimeout(maxWait);
       finish();
     }, 1000);
@@ -482,12 +480,15 @@ function pulseGlow(el) {
 
   const N = PROJECTS.length;
   const STEP = 26;       // degrees between neighbouring cards
-  // Ring radius scales with the viewport. Desktop keeps the wide 880px arc;
-  // small screens pull the ring in to 552px — the cards are 288px wide there
-  // (CSS 720px block), and 552 preserves the desktop neighbour-offset-to-card-
-  // width ratio (386/460), so the side cards still peek in from the screen
-  // edges and the cascade reads on a phone instead of hiding offscreen.
-  const ringRadius = () => (window.innerWidth <= 720 ? 552 : 880);
+  // Ring radius scales with the viewport. Desktop keeps the wide 880px arc.
+  // Small screens size the cards from the screen width (CSS 720px block:
+  // min(88vw, 360px)) and the radius follows at 1.913x the card width — the
+  // same radius-to-card-width ratio as desktop (880/460) — so the neighbour
+  // offset, peek and cascade all read identically, just scaled to the phone.
+  const ringRadius = () =>
+    window.innerWidth <= 720
+      ? 1.913 * Math.min(0.88 * window.innerWidth, 360)
+      : 880;
   let RADIUS = ringRadius();
   window.addEventListener("resize", () => { RADIUS = ringRadius(); });
 
@@ -728,9 +729,15 @@ function pulseGlow(el) {
   function release() {
     if (!dragging) return;
     dragging = false;
-    if (moved < 8 && pressedIndex !== null) openModal(PROJECTS[pressedIndex]);
-    // glide to the nearest card, carrying a little of the drag's momentum
-    tweenTo(Math.round(angle + vel * 6), 450);
+    if (moved < 8 && pressedIndex !== null) {
+      openModal(PROJECTS[pressedIndex]);
+      // recentre on the opened card (a tap on a SIDE card would otherwise
+      // leave it parked at the side, still off-centre when its window closes)
+      tweenTo(pressedIndex, 450);
+    } else {
+      // glide to the nearest card, carrying a little of the drag's momentum
+      tweenTo(Math.round(angle + vel * 6), 450);
+    }
     autoAt = performance.now() + 2000; // resume auto-drift 2s after interaction
     pressedIndex = null;
   }
@@ -982,16 +989,7 @@ window.addEventListener("keydown", (e) => e.key === "Escape" && closeModal());
     at(3960, () => finishOnce(500));                         // rest ~2s, then auto-cascade
   }
 
-  window.addEventListener("intro:done", () => {
-    // the viewer explicitly skipped the intro -> skip the tutorial too and
-    // hand straight over to the auto-cascade (same funnel the demo uses)
-    if (App.skipDemo) {
-      App.demoWillRun = false;
-      finishOnce(500);
-      return;
-    }
-    at(500, run);
-  });
+  window.addEventListener("intro:done", () => at(500, run));
 })();
 
 /* ---- 6. Horizontal timeline (chronological, alternating up/down) -------- */
