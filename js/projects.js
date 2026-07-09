@@ -662,8 +662,17 @@ const ABOUT = {
     { group: "Code", items: "Python · C++ · PyTorch · Claude Code · Git" },
   ],
   languages: "German (B1) · English (C1) · Tamil (C2, native)",
+  // Google Drive's file-viewer link — a clean paginated PDF-style view (page
+  // controls, its own download/print icons), always showing whatever is
+  // currently saved in the Doc (edit in Docs, no re-upload here, ever).
+  // Requires the doc's sharing set to "Anyone with the link — Viewer".
   resumes: [
-    { label: "Résumé", href: "assets/resume/Praveen-Vighnesh-Robotics-CV.pdf" },
+    {
+      label: "Résumé",
+      href: "https://drive.google.com/file/d/1Wx68v_03y4ndV7kLtG_5SVKJa6nHP0xk/view",
+      icon: "▤",
+      primary: true,
+    },
   ],
   // shown after the Résumé button, in this order
   socials: [

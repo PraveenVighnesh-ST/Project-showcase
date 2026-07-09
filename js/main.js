@@ -438,7 +438,20 @@ function pulseGlow(el) {
   setTimeout(() => { ready = true; }, 8000); // fallback
 
   /* ---- Global wheel handler: one continuous scroll through the whole site */
-  let hAccum = 0, hLock = 0;
+  // Mouse wheels deliver one or two big isolated deltas per physical notch;
+  // trackpads deliver dozens of small deltas across one continuous swipe,
+  // often with inertial "momentum" events trailing after fingers lift. The
+  // old logic re-armed its lock every ~120ms -- far shorter than a trackpad
+  // swipe -- so a single swipe could fire through several cards, or even
+  // chain Home -> Timeline -> About. Fix: each physical gesture is good for
+  // exactly ONE discrete action (a card step, or a section handoff). Every
+  // wheel event refreshes `gestureUntil`; once events stop for GESTURE_GAP
+  // ms the gesture counts as over, and only then can the next one act.
+  // Continuous glide scrolling inside Timeline/About (not a discrete jump)
+  // is untouched -- this only gates the moments the view actually jumps.
+  const GESTURE_GAP = 150; // silence (ms) that ends a gesture
+  const NOTCH_MIN = 60;    // an isolated delta this big reads as a mouse notch
+  let hAccum = 0, gestureUntil = 0, gestureFired = false;
   window.addEventListener(
     "wheel",
     (e) => {
@@ -448,12 +461,19 @@ function pulseGlow(el) {
       let dy = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
       if (e.deltaMode === 1) dy *= 16; // line-based wheels -> approx pixels
 
+      if (now > gestureUntil) { gestureFired = false; hAccum = 0; } // a gap -> new gesture
+      gestureUntil = now + GESTURE_GAP;
+
       if (currentSection === "home") {
         e.preventDefault();
+        if (gestureFired) return; // this gesture already moved a card -- swallow the rest
+        // an isolated big delta reads as a physical notch -> act now instead
+        // of waiting on the accumulator (keeps the mouse-wheel feel instant)
+        const isNotch = hAccum === 0 && Math.abs(dy) >= NOTCH_MIN;
         hAccum += dy;
-        if (Math.abs(hAccum) > 50 && now > hLock) {
+        if (isNotch || Math.abs(hAccum) > 50) {
           const dir = hAccum > 0 ? 1 : -1;
-          hAccum = 0; hLock = now + 120;
+          hAccum = 0; gestureFired = true;
           const moved = App.stepCard ? App.stepCard(dir) : false;
           // past the last card -> Timeline; before the first -> stay (top of site)
           if (!moved && dir > 0) goSection("timeline", { end: false });
@@ -464,18 +484,22 @@ function pulseGlow(el) {
         const wrap = App.tlWrap;
         if (!wrap) return;
         const max = wrap.scrollWidth - wrap.clientWidth;
-        // hand off to the next/prev section only once the TARGET is at an edge
-        if (dy > 0 && App.tlTarget >= max - 1) goSection("about", { end: false });
-        else if (dy < 0 && App.tlTarget <= 1) goSection("home", { card: App.cardCount ? App.cardCount - 1 : 0 });
-        else App.tlTarget = Math.max(0, Math.min(max, App.tlTarget + dy)); // glide (see scrollEase)
+        // hand off at an edge, once per gesture -- so a strong swipe's
+        // momentum tail can't also carry through into the section beyond
+        if (dy > 0 && App.tlTarget >= max - 1) {
+          if (!gestureFired) { gestureFired = true; goSection("about", { end: false }); }
+        } else if (dy < 0 && App.tlTarget <= 1) {
+          if (!gestureFired) { gestureFired = true; goSection("home", { card: App.cardCount ? App.cardCount - 1 : 0 }); }
+        } else App.tlTarget = Math.max(0, Math.min(max, App.tlTarget + dy)); // glide (see scrollEase)
       } else if (currentSection === "about") {
         e.preventDefault();
         App.abNative = false; // wheel -> eased glide
         const page = App.aboutPage;
         if (!page) return;
         const maxA = page.scrollHeight - page.clientHeight;
-        if (dy < 0 && App.abTarget <= 1) goSection("timeline", { end: true });
-        else App.abTarget = Math.max(0, Math.min(maxA, App.abTarget + dy)); // glide
+        if (dy < 0 && App.abTarget <= 1) {
+          if (!gestureFired) { gestureFired = true; goSection("timeline", { end: true }); }
+        } else App.abTarget = Math.max(0, Math.min(maxA, App.abTarget + dy)); // glide
       }
     },
     { passive: false }
@@ -1173,12 +1197,13 @@ const ICONS = {
       </div>`
     )
     .join("");
-  // opens in the in-site résumé viewer (resumeViewer module); the href stays as
-  // a no-JS fallback that just opens the PDF directly
+  // A plain link straight to Google Drive's viewer (see ABOUT.resumes) — it
+  // always shows whatever is currently saved in the Doc, so editing the
+  // résumé there updates the site instantly, with no re-upload here.
   const resumeBtns = ABOUT.resumes
     .map(
       (r) =>
-        `<a class="btn btn-primary" href="${r.href}" data-resume="${r.href}" data-label="${r.label}">▤ ${r.label}</a>`
+        `<a class="btn${r.primary ? " btn-primary" : ""}" href="${r.href}" target="_blank" rel="noopener">${r.icon} ${r.label}</a>`
     )
     .join("");
   const socialBtns = (ABOUT.socials || [])
@@ -1194,63 +1219,6 @@ const ICONS = {
     <div class="about-actions">${resumeBtns}${socialBtns}</div>
     <div class="about-label">Toolbox</div>
     <div class="skill-grid">${tiles}</div>`;
-})();
-
-/* ---- 7b. Résumé viewer: opens the CV in an on-site window (matches the
-   site's look) with a download button, instead of downloading straight away. */
-(function resumeViewer() {
-  const root = document.createElement("div");
-  root.className = "rez-root";
-  root.setAttribute("aria-hidden", "true");
-  root.innerHTML = `
-    <div class="rez-backdrop"></div>
-    <div class="rez-window" role="dialog" aria-modal="true" aria-label="Résumé">
-      <div class="rez-head">
-        <div>
-          <div class="rez-cat">Document</div>
-          <h3 class="rez-title">Résumé</h3>
-        </div>
-        <div class="rez-actions">
-          <a class="btn btn-primary rez-download" download>↓ Download</a>
-          <button class="rez-close" aria-label="Close">&times;</button>
-        </div>
-      </div>
-      <div class="rez-body"><iframe class="rez-frame" title="Résumé preview"></iframe></div>
-    </div>`;
-  document.body.appendChild(root);
-
-  const frame = root.querySelector(".rez-frame");
-  const dl = root.querySelector(".rez-download");
-  const titleEl = root.querySelector(".rez-title");
-
-  function open(href, label) {
-    titleEl.textContent = label || "Résumé";
-    dl.href = href;
-    dl.setAttribute("download", href.split("/").pop());
-    frame.src = href + "#view=FitH"; // let the browser's PDF viewer fit the width
-    root.classList.add("open");
-    root.setAttribute("aria-hidden", "false");
-    document.body.classList.add("modal-open");
-  }
-  function close() {
-    root.classList.remove("open");
-    root.setAttribute("aria-hidden", "true");
-    document.body.classList.remove("modal-open");
-    setTimeout(() => { frame.src = "about:blank"; }, 400); // stop rendering once hidden
-  }
-  root.querySelector(".rez-close").addEventListener("click", close);
-  root.querySelector(".rez-backdrop").addEventListener("click", close);
-  window.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && root.classList.contains("open")) close();
-  });
-
-  // any résumé button in the About section opens the viewer
-  document.addEventListener("click", (e) => {
-    const btn = e.target.closest("[data-resume]");
-    if (!btn) return;
-    e.preventDefault();
-    open(btn.getAttribute("data-resume"), btn.getAttribute("data-label"));
-  });
 })();
 
 /* ---- 8. Timeline: wheel-scroll horizontally + custom minimal scrollbar --- */
