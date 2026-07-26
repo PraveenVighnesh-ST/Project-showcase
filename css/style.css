@@ -112,7 +112,7 @@ body.modal-open { overflow: hidden; }
   background: var(--ink);
 }
 
-/* ---- 4. Intro (shrink-to-frame) ----------------------------------------- */
+/* ---- 4. Intro (title sequence -> dissolve into the site) ----------------- */
 #intro {
   position: fixed;
   inset: 0;
@@ -133,34 +133,17 @@ body.modal-open { overflow: hidden; }
   width: 100vw;
   height: 100vh;
   overflow: hidden;
-  border-radius: 0;
-  will-change: transform, width, height;
-  /* shrink runs for the same time as the video fade below, so the frame
-     collapsing onto the card and the video dissolving out read as one motion */
-  transition: width 1.6s var(--ease), height 1.6s var(--ease),
-    transform 1.6s var(--ease), border-radius 1.6s var(--ease),
-    box-shadow 1.6s var(--ease);
 }
 .intro-video {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
-  /* dissolves out across the whole shrink, revealing the card poster behind */
-  transition: opacity 1.6s var(--ease);
+  /* the title sequence dissolves out in place, over the site building up
+     behind it (main.js §2) — it does not shrink onto a card */
+  transition: opacity 1.2s var(--ease);
 }
-/* frozen a touch before its last frame, then dissolved to reveal the real
-   card (same size/position, via shrink()) sitting right behind it */
 #intro.video-fade .intro-video { opacity: 0; }
-/* On .shrunk the fullscreen video collapses to the SAME landscape size/ratio
-   as a project card (380 x 238 -> 16:10). */
-#intro.shrunk .intro-frame {
-  width: min(60vw, 520px);
-  height: min(37.5vw, 325px);   /* 520 x 0.625 = 325 -> matches card ratio */
-  border-radius: 18px;
-  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6),
-    0 0 0 1px var(--line-2) inset;
-}
 
 /* Bottom-middle skip: a glass pill matching the site's nav aesthetic */
 .intro-skip {
@@ -199,7 +182,7 @@ body.modal-open { overflow: hidden; }
 }
 .intro-skip.holding::before {
   transform: scaleX(1);
-  transition: transform 1s linear; /* matches the 1s hold timer in main.js */
+  transition: transform 1s linear; /* matches SKIP_HOLD (1000ms) in main.js */
 }
 /* the little spacebar keycap beside the label */
 .intro-skip kbd {
@@ -213,19 +196,20 @@ body.modal-open { overflow: hidden; }
   box-shadow: inset 0 -1.5px 0 rgba(200, 218, 235, 0.24);
   background: rgba(255, 255, 255, 0.05);
 }
-/* visible while the video plays fullscreen; hidden once the shrink starts
-   (the video's last 2s) since the intro is about to finish naturally anyway */
-#intro:not(.shrunk):not(.gone) .intro-skip { opacity: 1; }
+/* visible while the video plays; hidden once it starts dissolving out, since
+   the intro is about to finish on its own anyway */
+#intro:not(.video-fade):not(.gone) .intro-skip { opacity: 1; }
+/* on the way OUT, drop the 0.6s show-delay above so the pill leaves with the
+   video instead of lingering over the dissolve */
+#intro.video-fade .intro-skip { opacity: 0; transition: opacity 0.4s var(--ease); }
 .intro-skip:hover { color: var(--ink); border-color: var(--ink-2); }
-/* the black only fades away here, together with the whole overlay -- once
-   the video has actually finished -- so it gradually reveals the live site
-   underneath instead of cutting to it mid-shrink (which showed the real
-   card, already in place, before the video visually finished landing on it) */
+/* the last of the black lifts here, together with the whole overlay — this is
+   the final step of the outro, so the cards arrive after the name */
 #intro.gone { opacity: 0; visibility: hidden; pointer-events: none; background-color: transparent; }
 
-/* Star sprinkle (main.js sprinkleStars): during the shrink, stars pop into
-   the black one by one — staggered per-star delays — twinkle, then fade out
-   as the real constellation background dissolves in underneath. The layer
+/* Star sprinkle (main.js sprinkleStars): as the video dissolves, stars pop
+   into the black one by one — staggered per-star delays — twinkle, then fade
+   out as the real constellation background dissolves in underneath. The layer
    sits behind .intro-frame and dies with the intro overlay. */
 .intro-stars { position: absolute; inset: 0; pointer-events: none; }
 .intro-stars span {
@@ -1374,12 +1358,6 @@ body.modal-open #page-home .wordmark { opacity: 0; }
   .intro-video { object-fit: contain; }
   /* no spacebar on a phone -> drop the keycap (it wrapped out of the pill) */
   .intro-skip kbd { display: none; }
-  /* fallback shrink target matches the mobile card size (shrink() normally
-     measures the real card and overrides this with inline styles) */
-  #intro.shrunk .intro-frame {
-    width: min(88vw, 360px);
-    height: calc(min(88vw, 360px) * 0.625);
-  }
   .wordmark { font-size: 22vw; bottom: 2vh; }
   .skill-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .m-head { padding-left: 24px; padding-right: 24px; }

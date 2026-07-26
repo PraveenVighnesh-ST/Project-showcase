@@ -27,7 +27,7 @@
 </header>
 
 <!-- ============================================================= INTRO ==== -->
-<!-- Hero product video plays fullscreen, then shrinks into a square frame. -->
+<!-- Title sequence plays fullscreen, then dissolves into the live site. -->
 <div id="intro">
   <div class="intro-frame">
     <video
@@ -39,12 +39,13 @@
       preload="auto"
       poster="assets/img/intro-poster.jpg"
     >
-      <!-- Cooka SCARA robot render (opaque, dark-grey studio bg). Plays 6s
-           fullscreen, then shrinks onto the front card (main.js §2). -->
-      <source src="assets/video/intro-scara.mp4" type="video/mp4" />
+      <!-- 5s title sequence ending on the name over black. It dissolves out
+           in place — no shrink onto a card — and the site fades in behind it:
+           stars, background, name, then the cards (main.js §2). -->
+      <source src="assets/video/intro.mp4" type="video/mp4" />
     </video>
   </div>
-  <!-- click skips instantly; holding SPACE for 1s fills the pill, then skips
+  <!-- click skips instantly; holding SPACE for 2s fills the pill, then skips
        (released early, the fill drains back — see .intro-skip::before) -->
   <button class="intro-skip" id="intro-skip" title="Hold Space to skip">
     Skip intro <kbd aria-hidden="true">␣ space</kbd>

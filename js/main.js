@@ -193,7 +193,7 @@ function pulseGlow(el) {
   frame();
 })();
 
-/* ---- 2. Intro: fullscreen video shrinks down onto the front card --------- */
+/* ---- 2. Intro: title sequence dissolves into the live site --------------- */
 (function intro() {
   const intro = document.getElementById("intro");
   const video = document.getElementById("intro-video");
@@ -219,16 +219,22 @@ function pulseGlow(el) {
   // fetch the 3D-viewer module once the intro video is comfortably streaming
   setTimeout(loadModelViewer, 2500);
 
-  const OUTRO_AT = 6;          // the video starts shrinking onto the card here...
-  const OUTRO_DUR = 1.6;       // ...over this long, dissolving out as it shrinks
-  const BG_REVEAL_AT = 6.9;    // ...and the real site fades in as the first
-                               //    sprinkled stars begin to die out
+  // The intro is a ~5s title sequence that ends on the name over black, so it
+  // simply dissolves out where it is — nothing shrinks onto a card. The
+  // dissolve starts before the clip ends, overlapping its final beat, and the
+  // site builds up behind it in order: stars, background, the name, the cards.
+  const OUTRO_AT = 4;          // the video starts dissolving out here...
+  const OUTRO_DUR = 1.5;       // ...and the site has fully taken over by here
+  const BG_REVEAL_IN = 450;    // ms into the outro: constellation dissolves in
+  const TEXT_IN = 900;         // ms into the outro: the brand name fades in
 
-  let done = false, shrunk = false, bgRevealed = false, outroStarted = false;
+  let done = false, bgRevealed = false, outroStarted = false;
+  let stageTimers = [];
+  const stage = (ms, fn) => stageTimers.push(setTimeout(fn, ms));
 
   // Gradually fade the solid black away to reveal the live site (constellation
-  // bg, nav, cards) behind the intro, starting once the video hits BG_REVEAL_AT
-  // -- instead of holding it back until the video fully ends.
+  // bg, nav, cards) behind the intro — staged partway through the outro rather
+  // than held back until the very end.
   function revealBg() {
     if (bgRevealed) return;
     bgRevealed = true;
@@ -236,10 +242,10 @@ function pulseGlow(el) {
     intro.classList.add("bg-reveal");
   }
 
-  // Star sprinkle: as the video shrinks, individual stars pop into the black
+  // Star sprinkle: as the video dissolves, individual stars pop into the black
   // one by one (random spots, staggered), twinkle, then fade away while the
   // real constellation background dissolves in underneath — the sprinkle
-  // hands over to the actual site bg. Layer sits BEHIND the shrinking frame.
+  // hands over to the actual site bg. Layer sits BEHIND the video frame.
   function sprinkleStars() {
     const layer = document.createElement("div");
     layer.className = "intro-stars";
@@ -256,76 +262,76 @@ function pulseGlow(el) {
     intro.insertBefore(layer, intro.firstChild);
   }
 
-  // Shrink the fullscreen video down onto the FRONT card's exact on-screen
-  // position and size, so the product appears to settle into the card.
-  function shrink() {
-    if (shrunk) return;
-    shrunk = true;
-    const frame = intro.querySelector(".intro-frame");
-    const card = document.querySelector(".card.is-front") || document.querySelector(".card");
-    if (frame && card) {
-      const r = card.getBoundingClientRect();
-      if (r.width > 0) {
-        frame.style.width = r.width + "px";
-        frame.style.height = r.height + "px";
-        const dx = r.left + r.width / 2 - window.innerWidth / 2;
-        const dy = r.top + r.height / 2 - window.innerHeight / 2;
-        frame.style.transform = `translate(${dx.toFixed(1)}px, ${dy.toFixed(1)}px)`;
-      }
-    }
-    intro.classList.add("shrunk"); // collapses the frame + hides the skip pill (CSS)
-  }
-
   function reveal() {
     if (done) return;
     done = true;
     clearTimeout(maxWait);
+    clearTimeout(outroTimer);
+    stageTimers.forEach(clearTimeout);
+    stageTimers = [];
     // Space is only a skip key while the intro is up — release it back to
     // the browser so it never affects the rest of the site.
     window.removeEventListener("keydown", onSpaceDown);
     window.removeEventListener("keyup", onSpaceUp);
-    shrink(); // safety: the video must have visibly landed on the card first
-    revealBg();
+    revealBg();                          // no-ops if the outro already did it
     brand && brand.classList.add("show");
-    intro.classList.add("gone");
+    intro.classList.add("gone");         // the last black lifts -> cards visible
     // tell the carousel the intro is over (it then waits 3s before auto-scroll)
     window.dispatchEvent(new Event("intro:done"));
   }
-  // Coordinated outro: the fullscreen video shrinks onto the card AND fades
-  // out at the same time, dissolving into the real photo poster that sits in
-  // that same card right behind it (shrink() matched its size/position). One
-  // smooth motion instead of shrink-then-cut, so it never feels janky.
+  // Outro: the video dissolves out where it is, while the site assembles
+  // behind it one layer at a time — stars, then the constellation background,
+  // then the name, and finally the cards as the last of the black lifts.
   function outro() {
     if (outroStarted) return;
     outroStarted = true;
-    shrink();                           // frame shrinks onto the front card
-    intro.classList.add("video-fade");  // video gently dissolves out as it shrinks
-    sprinkleStars();                    // stars pop in one by one across the black
-    setTimeout(reveal, OUTRO_DUR * 1000);
+    intro.classList.add("video-fade");   // 0. the video gently dissolves out
+    sprinkleStars();                     // 1. stars pop in across the black
+    stage(BG_REVEAL_IN, revealBg);       // 2. background dissolves in
+    stage(TEXT_IN, () => brand && brand.classList.add("show")); // 3. the name
+    stage(OUTRO_DUR * 1000, reveal);     // 4. cards, as the black finishes
   }
   function finish() {
     // skip / error: collapse the choreography quickly, then reveal
     outroStarted = true;
-    shrink();
     intro.classList.add("video-fade");
     setTimeout(reveal, 450);
   }
 
+  // The outro is time-driven, but `timeupdate` alone is not enough here: the
+  // clip is ~5.01s and OUTRO_AT is 5, so a tick may never land inside that
+  // 10ms window, and browsers throttle the event in busy/background tabs
+  // anyway. So the moment playback is genuinely running we ALSO arm an
+  // absolute timer for the outro, independent of tick frequency.
+  let outroTimer = null;
+  function armOutro() {
+    if (outroTimer || outroStarted) return;
+    const remain = Math.max(0, OUTRO_AT - (video ? video.currentTime : 0));
+    outroTimer = setTimeout(outro, remain * 1000);
+  }
   if (video) {
     video.addEventListener("timeupdate", () => {
-      if (video.currentTime >= BG_REVEAL_AT) revealBg();
       if (video.currentTime >= OUTRO_AT) outro();
+      else if (video.currentTime > 0.05) armOutro(); // playing -> arm the backstop
     });
-    // fallback if the clip is shorter than OUTRO_AT (or timeupdate is sparse)
+    video.addEventListener("playing", armOutro);
+    // the clip ending is the normal trigger (it is exactly OUTRO_AT long)
     video.addEventListener("ended", outro);
     video.addEventListener("error", finish);
+    // bound late (cached, already past the mark) -> go now
+    if (video.currentTime >= OUTRO_AT || video.ended) outro();
+    // Autoplay blocked or the fetch stalled: if the clip hasn't advanced at
+    // all shortly after load, run the choreography rather than hold the black.
+    setTimeout(() => {
+      if (!outroStarted && (!video.currentTime || video.currentTime < 0.1)) outro();
+    }, 2500);
   } else {
     setTimeout(outro, OUTRO_AT * 1000);
   }
 
-  // safety net in case metadata/ended never fire (e.g. autoplay blocked) —
-  // sized for the 8s clip: 6s play + 1.6s outro + load headroom
-  const maxWait = setTimeout(finish, 11000);
+  // final backstop if every signal above is missed — sized for the 5s clip
+  // plus its 1.5s outro and a little load headroom
+  const maxWait = setTimeout(finish, 8000);
 
   skip &&
     skip.addEventListener("click", () => {
@@ -333,10 +339,12 @@ function pulseGlow(el) {
       finish();
     });
 
-  // Hold SPACE for 1s to skip: .holding drives the pill's fill (CSS); the
-  // timer fires the actual skip. Released early -> timer cancelled and the
-  // fill drains back. preventDefault keeps Space from scrolling the page or
-  // click-activating the focused button; reveal() removes both listeners.
+  // Hold SPACE for 1s to skip: .holding drives the pill's fill (CSS, matched
+  // to the same 1s), and the timer fires the actual skip. Released early ->
+  // timer cancelled and the fill drains back. preventDefault keeps Space from
+  // scrolling the page or click-activating the focused button; reveal()
+  // removes both listeners.
+  const SKIP_HOLD = 1000;
   let spaceTimer = null;
   function onSpaceDown(e) {
     if (e.code !== "Space") return;
@@ -346,7 +354,7 @@ function pulseGlow(el) {
     spaceTimer = setTimeout(() => {
       clearTimeout(maxWait);
       finish();
-    }, 1000);
+    }, SKIP_HOLD);
   }
   function onSpaceUp(e) {
     if (e.code !== "Space") return;

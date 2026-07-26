@@ -355,9 +355,11 @@ const ALL_PROJECTS = [
     year: "2022",
     accent: "#c96a4f",
     poster: "assets/img/racking-machine-cover.jpg",
-    // no `model` field -> the card window plays this chassis walkaround in the
-    // centre viewer. The clip ends on the cover frame, so the card loops clean.
+    // The card loops this chassis walkaround; the window's centre viewer shows
+    // the model below. The clip ends on the cover frame, so the card loops clean.
     video: "assets/video/racking-machine.mp4",
+    model: "assets/models/Racking-Machine.glb", // Draco-compressed 2.88MB -> 213KB
+    cameraOrbit: "35deg 74deg 80%",
     hero:
       "A hand-pushed floor-raking machine for poultry sheds — a spinning " +
       "rear rotavator breaks up caked litter, built cheap enough for a " +
