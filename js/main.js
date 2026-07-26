@@ -729,7 +729,7 @@ function pulseGlow(el) {
       angle = goal;                                    // resting on a card
       if (now >= autoAt && goal < N - 1) {              // stop drifting at the last card
         if (!dwellStart) dwellStart = now;
-        if (now - dwellStart >= 2500) tweenTo(goal + 1, 850); // hold 2.5s, then glide
+        if (now - dwellStart >= 8000) tweenTo(goal + 1, 850); // hold 8s, then glide
       } else dwellStart = 0;
     }
 
@@ -961,11 +961,16 @@ function openModal(p) {
          exposure="${p.exposure != null ? p.exposure : 0.72}" tone-mapping="neutral" interaction-prompt="none"${
            p.cameraOrbit ? ` camera-orbit="${p.cameraOrbit}"` : ""
          }></model-viewer>`;
-  } else if (p.video) {
+  } else if (p.viewerVideo || p.video) {
+    // `viewerVideo` lets a project show a DIFFERENT clip here than the one its
+    // card loops (e.g. a card that loops an overview but shows a specific
+    // sequence in the viewer); plain `video` is the default for everyone else.
+    const src = p.viewerVideo || p.video;
     viewerInner =
-      `<video class="m-viewer-media" autoplay muted loop playsinline poster="${p.poster}">${videoSourceTags(
-        p.video
-      )}</video>`;
+      `${p.viewerCap ? `<p class="m-viewer-cap">${p.viewerCap}</p>` : ""}
+       <video class="m-viewer-media" autoplay muted loop playsinline${
+         p.viewerVideo ? "" : ` poster="${p.poster}"`
+       }>${videoSourceTags(src)}</video>`;
   } else {
     viewerInner = `<img class="m-viewer-media" src="${p.poster}" alt="${p.title}" />`;
   }

@@ -80,6 +80,68 @@ const ALL_PROJECTS = [
   },
 
   {
+    id: "teleop",
+    title: "Teleop — ROS 2 + Gazebo",
+    tagline: "Real-time gamepad teleoperation driving a Gazebo twin and the physical arm through one ros2_control stack",
+    category: "Teleoperation / ROS 2",
+    year: "2026",
+    aboutLabel: "System architecture", // the middle column is the control stack
+    accent: "#37d6a7",
+    poster: "assets/img/teleop-cover.jpg",
+    // Card loop: the operator's view — RViz and Gazebo beside a live
+    // ros2_control terminal, gamepad in hand. Ends on the cover, so the loop
+    // dissolves cleanly.
+    video: "assets/video/teleop.mp4",
+    posterHold: 800,
+    // No 3D model here: the viewer column shows the auto-homing sequence
+    // instead (see `viewerVideo` support in main.js openModal).
+    viewerVideo: "assets/video/teleop-homing.mp4",
+    viewerCap: "auto-homing to the calibrated zero pose",
+    hero:
+      "A teleoperation layer where one operator input path drives both the " +
+      "Gazebo digital twin and the real arm — the same ros2_control " +
+      "interfaces underneath, so a motion proven in simulation runs on " +
+      "hardware without rewriting the control side.",
+    specs: [
+      { label: "Input", value: "Gamepad · deadman-gated" },
+      { label: "Control", value: "ros2_control · JointGroupPositionController" },
+      { label: "Simulation", value: "Gazebo twin · RViz" },
+      { label: "Setpoint stream", value: "Time-indexed, jitter-tolerant" },
+      { label: "Homing", value: "Absolute encoders, no limit switches" },
+    ],
+    tags: ["ROS 2", "ros2_control", "Gazebo", "RViz", "Teleoperation", "Real-time control"],
+    sections: [
+      {
+        title: "One operator path, sim and hardware",
+        body:
+          "Controller switching at runtime lets the same teleop commands " +
+          "drive the Gazebo twin or the physical joints, so behaviour is " +
+          "rehearsed safely in simulation and replayed on the real arm.",
+        video: "assets/video/teleop-controller.mp4",
+        poster: "assets/img/teleop-cover.jpg",
+      },
+      {
+        title: "Streaming setpoints that tolerate latency",
+        body:
+          "The servo loop is time-indexed rather than iteration-counted: " +
+          "each cycle evaluates the trajectory at real elapsed time, so a " +
+          "late message shifts nothing — feed-forward carries the motion " +
+          "and a proportional term absorbs the residual error.",
+        image: null,
+      },
+      {
+        title: "Safety as a layered design",
+        body:
+          "A held deadman is required for any motion, with stick-centre " +
+          "release and a stale-input watchdog as independent stop paths, " +
+          "plus a graceful stop on every termination signal — and a clear " +
+          "boundary drawn around what in-process safety cannot cover.",
+        image: null,
+      },
+    ],
+  },
+
+  {
     id: "generative-design",
     title: "Generative Design",
     tagline: "Constraint-driven lightweight design for robotics and functional mechanical parts",
@@ -214,6 +276,68 @@ const ALL_PROJECTS = [
           "member; the frame was then cut, welded and machined on site " +
           "with the fabrication team.",
         image: "assets/img/poultry-truss-cad.jpg",
+      },
+    ],
+  },
+
+  {
+    id: "scara-v1",
+    title: "SCARA V1",
+    tagline: "A belt-driven SCARA arm with a dual-plate structural frame for high moment-load capacity",
+    category: "Robotics / Mechanism Design",
+    year: "2023", // TODO: confirm — guessed as an earlier design study than Cooka (2026)
+    accent: "#e63946",
+    poster: "assets/img/scara-v1-cover.jpg",
+    // Exploded-assembly animation: internals (driver board, motor, rail
+    // carriage) revealed first, then the robot closes up into its final
+    // assembled form — not a loop, so it dissolves to the cover and replays.
+    video: "assets/video/scara-v1.mp4",
+    posterHold: 800,
+    model: "assets/models/SCARA-V1.glb", // Draco-compressed 23.4MB -> 1.68MB
+    cameraOrbit: "25deg 76deg 78%",
+    exposure: 0.35, // bright red/white model — dim the viewer so it reads naturally
+    hero:
+      "A SCARA arm modeled around two structural ideas — belt-driven " +
+      "torque multiplication at each joint, and aluminium plates placed " +
+      "at the extreme top and bottom of every link, as far from the " +
+      "bending axis as the geometry allows.",
+    specs: [
+      { label: "Configuration", value: "Belt-driven SCARA arm" },
+      { label: "Structural frame", value: "Dual aluminium plates, top & bottom" },
+      { label: "Gripper guidance", value: "Parallel MGW9 linear rails" },
+      { label: "Transmission", value: "GT2 belt & pulley reduction" },
+      { label: "Tool", value: "Fusion 360" },
+    ],
+    tags: ["Fusion 360", "SCARA Kinematics", "Belt Transmission", "Linear Motion", "Structural Design"],
+    sections: [
+      {
+        title: "Plates at the extreme fibers",
+        body:
+          "Each link's aluminium plates sit at the top and bottom face — " +
+          "as far from the neutral bending axis as the geometry allows — " +
+          "so they resist bending far more efficiently per gram than " +
+          "material nearer the centre, the same principle behind an " +
+          "I-beam's flanges.",
+        image: null,
+      },
+      {
+        title: "Gripper on parallel linear rails",
+        body:
+          "The gripper rides on two parallel MGW9 rails with MGW9H " +
+          "carriages, so a cantilevered payload's overturning moment " +
+          "resolves into a push-pull pair across the rails instead of " +
+          "loading a single carriage's bearings, then transfers straight " +
+          "into the top and bottom plates.",
+        image: null,
+      },
+      {
+        title: "Belt-driven torque multiplication",
+        body:
+          "GT2 timing belts and pulleys step down each joint's speed and " +
+          "step up its torque, keeping the heavier motor off the joint's " +
+          "own axis — cheaper than a gearbox, and less mass swinging at " +
+          "the end of the arm.",
+        image: "assets/img/scara-v1-belt.jpg",
       },
     ],
   },
@@ -565,9 +689,11 @@ const ALL_PROJECTS = [
 // Ids not listed here (e.g. future cards) simply follow after, in file order.
 const CARD_ORDER = [
   "robotic-arm",     // Cooka — A SCARA Robot
+  "teleop",          // Teleop — ROS 2 + Gazebo
   "robot-hand",      // Anthropomorphic hand
   "excavator",
   "poultry-farm",
+  "scara-v1",
   "generative-design",
   "racking-machine",
   "spot",            // Reference-Based Quadruped Modeling
