@@ -36,6 +36,14 @@ function videoSourceTags(video) {
     .join("");
 }
 
+// "View larger" chip, shared by the 3D and video viewers (module 5c opens the
+// enlarged stage). A click on the media itself already orbits the model, so
+// enlarging needs its own control rather than a click target.
+const EXPAND_BTN =
+  `<button class="m-viewer-expand" type="button" aria-label="View larger" title="View larger">
+     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3H4a1 1 0 0 0-1 1v5h2V5h4V3Zm6 0h5a1 1 0 0 1 1 1v5h-2V5h-4V3ZM5 15H3v5a1 1 0 0 0 1 1h5v-2H5v-4Zm14 0h2v5a1 1 0 0 1-1 1h-5v-2h4v-4Z"/></svg>
+   </button>`;
+
 /* Shared journey state — the whole site is one continuous scroll:
    Home cards -> Timeline -> About (and back). Populated by the modules below. */
 const App = {};
@@ -925,6 +933,39 @@ function pulseGlow(el) {
 })();
 
 /* ---- 5. Project detail modal -------------------------------------------- */
+// Section clips start with preload="none"; each one only begins downloading
+// when it scrolls into view, a little ahead of time. On a slow line that keeps
+// an opened window responsive instead of pulling every clip in the column at
+// once. (The viewer column's own media is the main visual, so it loads with
+// the window as before.)
+function lazySectionMedia(scope) {
+  const vids = scope.querySelectorAll("video.m-section-media");
+  if (!vids.length) return;
+  const start = (v) => {
+    if (v.dataset.started) return;
+    v.dataset.started = "1";
+    v.preload = "auto";
+    v.load();
+    v.play().catch(() => {});
+  };
+  if (!("IntersectionObserver" in window)) {
+    vids.forEach(start); // no observer support -> behave as before
+    return;
+  }
+  // root:null still accounts for clipping by the scrolling column above it
+  const io = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((e) => {
+        if (!e.isIntersecting) return;
+        start(e.target);
+        io.unobserve(e.target);
+      });
+    },
+    { rootMargin: "250px" } // begin just before it reaches the viewport
+  );
+  vids.forEach((v) => io.observe(v));
+}
+
 const modalRoot = document.getElementById("modal-root");
 const modalContent = document.getElementById("modal-content");
 const modalWindow = document.getElementById("modal-window");
@@ -953,14 +994,18 @@ function openModal(p) {
     // NOTE: deliberately no poster attr — on slow connections the cover photo
     // used to flash before the model appeared; now the viewer shows its dark
     // frame + accent progress bar until the GLB is ready.
+    // The frame wrapper anchors the expand button to the media's top-right corner.
     viewerInner =
       `<p class="m-viewer-cap">drag to orbit · scroll to zoom</p>
-       <model-viewer src="${modelSrc}" alt="${p.title} 3D model"
-         camera-controls auto-rotate auto-rotate-delay="0"
-         touch-action="pan-y" shadow-intensity="0.65"
-         exposure="${p.exposure != null ? p.exposure : 0.72}" tone-mapping="neutral" interaction-prompt="none"${
-           p.cameraOrbit ? ` camera-orbit="${p.cameraOrbit}"` : ""
-         }></model-viewer>`;
+       <div class="m-viewer-frame">
+         <model-viewer src="${modelSrc}" alt="${p.title} 3D model"
+           camera-controls auto-rotate auto-rotate-delay="0"
+           touch-action="pan-y" shadow-intensity="0.65"
+           exposure="${p.exposure != null ? p.exposure : 0.72}" tone-mapping="neutral" interaction-prompt="none"${
+             p.cameraOrbit ? ` camera-orbit="${p.cameraOrbit}"` : ""
+           }></model-viewer>
+         ${EXPAND_BTN}
+       </div>`;
   } else if (p.viewerVideo || p.video) {
     // `viewerVideo` lets a project show a DIFFERENT clip here than the one its
     // card loops (e.g. a card that loops an overview but shows a specific
@@ -968,9 +1013,12 @@ function openModal(p) {
     const src = p.viewerVideo || p.video;
     viewerInner =
       `${p.viewerCap ? `<p class="m-viewer-cap">${p.viewerCap}</p>` : ""}
-       <video class="m-viewer-media" autoplay muted loop playsinline${
-         p.viewerVideo ? "" : ` poster="${p.poster}"`
-       }>${videoSourceTags(src)}</video>`;
+       <div class="m-viewer-frame">
+         <video class="m-viewer-media" autoplay muted loop playsinline${
+           p.viewerVideo ? "" : ` poster="${p.poster}"`
+         }>${videoSourceTags(src)}</video>
+         ${EXPAND_BTN}
+       </div>`;
   } else {
     viewerInner = `<img class="m-viewer-media" src="${p.poster}" alt="${p.title}" />`;
   }
@@ -981,7 +1029,10 @@ function openModal(p) {
     .map((s) => {
       let media = "";
       if (s.video) {
-        media = `<video class="m-section-media" autoplay muted loop playsinline${
+        // preload="none" + no autoplay: these only fetch once they scroll into
+        // view (see lazySectionMedia), so opening a window never downloads
+        // clips further down the column that the reader may never reach.
+        media = `<video class="m-section-media" muted loop playsinline preload="none"${
           s.poster ? ` poster="${s.poster}"` : ""
         }>${videoSourceTags(s.video)}</video>`;
       } else if (s.image) {
@@ -1013,6 +1064,11 @@ function openModal(p) {
   modalWindow.style.setProperty("--m-accent", p.accent);
   modalRoot.style.setProperty("--accent", p.accent);
 
+  // "View larger" opens the media on a full-screen stage (module 5c)
+  const expandBtn = modalContent.querySelector(".m-viewer-expand");
+  if (expandBtn) expandBtn.addEventListener("click", () => App.zoomView && App.zoomView(p));
+  lazySectionMedia(modalContent); // section clips fetch as they scroll into view
+
   // Click feel: ONLY the clicked card dips (press-in), then the window grows
   // out of it — so that one card visually "becomes" the project window.
   if (App.recoilCard) App.recoilCard(typeof PROJECTS !== "undefined" ? PROJECTS.indexOf(p) : -1);
@@ -1040,7 +1096,127 @@ function closeModal() {
 }
 document.getElementById("modal-close").addEventListener("click", closeModal);
 document.getElementById("modal-backdrop").addEventListener("click", closeModal);
-window.addEventListener("keydown", (e) => e.key === "Escape" && closeModal());
+// Escape closes the project window — unless the enlarged model stage is up,
+// which takes the key first (module 5c) and leaves the window open behind it.
+window.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  if (App.zoomOpen && App.zoomOpen()) return;
+  closeModal();
+});
+
+/* ---- 5c. Enlarged viewer stage ------------------------------------------- */
+/* The viewer column is only card-sized, so "view larger" re-opens the same
+   media — 3D model or video — on a near-fullscreen stage over the project
+   window. It builds a SECOND viewer pointed at the same source; when the
+   asset pipeline (4b) already holds the GLB as a blob, that costs no extra
+   download and appears instantly. The project window stays open underneath,
+   so closing the stage returns the reader exactly where they were. */
+(function viewerZoom() {
+  let root = null, media = null, pausedBehind = null;
+
+  function build() {
+    if (root) return;
+    root = document.createElement("div");
+    root.className = "mvz-root";
+    root.setAttribute("aria-hidden", "true");
+    root.innerHTML = `
+      <div class="mvz-backdrop"></div>
+      <div class="mvz-stage" role="dialog" aria-modal="true" aria-label="Enlarged view">
+        <p class="mvz-cap"><span class="mvz-title"></span><span class="mvz-hint"></span></p>
+        <div class="mvz-frame"></div>
+        <button class="mvz-close" type="button" aria-label="Close">&times; Close</button>
+      </div>`;
+    document.body.appendChild(root);
+    root.querySelector(".mvz-close").addEventListener("click", close);
+    root.querySelector(".mvz-backdrop").addEventListener("click", close);
+    window.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && isOpen()) close();
+    });
+  }
+
+  const isOpen = () => !!(root && root.classList.contains("open"));
+
+  function makeModel(p) {
+    loadModelViewer();
+    const v = document.createElement("model-viewer");
+    // reuse the pipeline's downloaded copy when it has one (no re-download)
+    v.setAttribute("src", App.modelSrc ? App.modelSrc(p) : p.model);
+    v.setAttribute("alt", p.title + " 3D model");
+    v.setAttribute("camera-controls", "");
+    v.setAttribute("auto-rotate", "");
+    v.setAttribute("auto-rotate-delay", "0");
+    v.setAttribute("touch-action", "none"); // full-screen: the model owns the gesture
+    v.setAttribute("shadow-intensity", "0.65");
+    v.setAttribute("tone-mapping", "neutral");
+    v.setAttribute("interaction-prompt", "none");
+    v.setAttribute("exposure", p.exposure != null ? p.exposure : 0.72);
+    if (p.cameraOrbit) v.setAttribute("camera-orbit", p.cameraOrbit);
+    return v;
+  }
+
+  function makeVideo(p) {
+    const v = document.createElement("video");
+    v.className = "mvz-video";
+    v.muted = true;
+    v.loop = true;
+    v.autoplay = true;
+    v.playsInline = true;
+    v.controls = true; // at full size, let the reader pause/scrub the clip
+    v.preload = "auto";
+    // `fullVideo` is the long cut — it exists ONLY here, so opening this stage
+    // is the first moment it is ever requested (see the note in projects.js).
+    v.innerHTML = videoSourceTags(p.fullVideo || p.viewerVideo || p.video);
+    // A big clip can take a while on a slow line: hold a "loading" state until
+    // enough has buffered to play, so the stage never sits blank and silent.
+    root.classList.add("loading");
+    const ready = () => root.classList.remove("loading");
+    v.addEventListener("loadeddata", ready);
+    v.addEventListener("canplay", ready);
+    v.addEventListener("error", ready);
+    return v;
+  }
+
+  function open(p) {
+    if (!p) return;
+    const isModel = !!p.model;
+    if (!isModel && !(p.fullVideo || p.viewerVideo || p.video)) return;
+    build();
+    const frame = root.querySelector(".mvz-frame");
+    if (media) media.remove();
+    root.classList.remove("loading");
+    media = isModel ? makeModel(p) : makeVideo(p);
+    frame.appendChild(media);
+    root.querySelector(".mvz-title").textContent = p.title;
+    root.querySelector(".mvz-hint").textContent = isModel
+      ? "drag to orbit · scroll to zoom"
+      : (p.fullVideo ? p.fullVideoCap : p.viewerCap) || "";
+    root.style.setProperty("--accent", p.accent || "#4da3ff");
+    root.setAttribute("aria-hidden", "false");
+    // pause the small copy behind the stage — nothing can see it, and two
+    // decoders running the same clip is wasted work (phones are strict here)
+    const behind = modalContent && modalContent.querySelector(".m-viewer video");
+    if (behind && !behind.paused) { behind.pause(); pausedBehind = behind; }
+    // The stage was just inserted (or re-shown): force one style recalc so the
+    // browser has a CLOSED state to animate FROM. Without it a freshly-added
+    // element jumps straight to its open style and no transition runs at all.
+    void root.offsetWidth;
+    root.classList.add("open");
+  }
+
+  function close() {
+    if (!root) return;
+    root.classList.remove("open");
+    root.setAttribute("aria-hidden", "true");
+    if (pausedBehind) { pausedBehind.play().catch(() => {}); pausedBehind = null; }
+    // drop the viewer once hidden so it stops rendering (and frees its GPU work)
+    setTimeout(() => {
+      if (!isOpen() && media) { media.remove(); media = null; }
+    }, 450);
+  }
+
+  App.zoomView = open;
+  App.zoomOpen = isOpen;
+})();
 
 /* ---- 5b. First-run guidance gesture ------------------------------------- */
 /* Once the site settles after the intro, a robot-hand pointer glides onto the

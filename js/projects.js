@@ -97,6 +97,11 @@ const ALL_PROJECTS = [
     // instead (see `viewerVideo` support in main.js openModal).
     viewerVideo: "assets/video/teleop-homing.mp4",
     viewerCap: "auto-homing to the calibrated zero pose",
+    // The full run-through. Deliberately NOT loaded with the page or the
+    // project window — it only starts downloading when the reader hits
+    // "view larger", so its size never competes with the rest of the site.
+    fullVideo: "assets/video/teleop-full.mp4",
+    fullVideoCap: "full teleoperation run-through",
     hero:
       "A teleoperation layer where one operator input path drives both the " +
       "Gazebo digital twin and the real arm — the same ros2_control " +
@@ -773,7 +778,7 @@ const ABOUT = {
   role: "Mechatronics Product Designer", // matches the top-left brand title
   location: "Nuremberg, Germany",
   email: "praveenthamilarasu@gmail.com",
-  linkedin: "https://www.linkedin.com/", // TODO: replace with your LinkedIn URL
+  // (the real LinkedIn URL is in `socials` below — that's the one that renders)
   blurb:
     "I design actuated robotic hardware and bring it up in ROS 2 and Gazebo — " +
     "hands-on across the full stack: mechanical design, motion control, " +
