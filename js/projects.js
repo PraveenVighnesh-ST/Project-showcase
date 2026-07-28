@@ -248,7 +248,7 @@ const ALL_PROJECTS = [
   {
     id: "poultry-farm",
     title: "Poultry Farm Design",
-    tagline: "Internship · 41-ft Pratt truss for a 40,000 sq-ft poultry shed",
+    tagline: "Internship · 43-ft Pratt truss for a 40,000 sq-ft poultry shed",
     category: "Structural Design / FEA",
     year: "2022",
     accent: "#d0584a",
@@ -261,26 +261,56 @@ const ALL_PROJECTS = [
     // Card loop: play to the end, dissolve to the cover photo, hold ~1s, replay.
     posterHold: 1000,
     hero:
-      "A 41-foot Pratt roof truss I designed and helped fabricate at " +
-      "ISOLogic — sized in FEA, then welded into the steel frame of a " +
-      "40,000 sq-ft poultry shed.",
+      "A 43-foot Pratt roof truss I designed and helped fabricate at " +
+      "ISOLogic — sized in FEA to a minimum safety factor of 3, then cut, " +
+      "welded and inspected into the steel frame of a 40,000 sq-ft " +
+      "poultry shed.",
     specs: [
-      { label: "Structure", value: "41-ft Pratt roof truss" },
+      { label: "Structure", value: "43-ft Pratt roof truss" },
       { label: "Material", value: "Mild steel · fy ≈ 207 MPa" },
-      { label: "Max von Mises", value: "11.85 MPa" },
-      { label: "Min safety factor", value: "≥ 15" },
-      { label: "Peak deflection", value: "0.32 mm" },
+      // 207 / 68.9 ≈ 3.0 — the von Mises peak and the safety factor are the
+      // same result stated two ways, so they have to stay consistent.
+      { label: "Max von Mises", value: "68.9 MPa" },
+      { label: "Min safety factor", value: "3.0" },
+      { label: "Peak deflection", value: "< 20 mm" },
       { label: "Analysis", value: "Autodesk Inventor FEA" },
     ],
-    tags: ["Autodesk Inventor", "FEA", "Steel structures", "Welding", "GD&T"],
+    tags: [
+      "Autodesk Inventor",
+      "FEA",
+      "Steel structures",
+      "Welding",
+      "NDT",
+      "Thermal simulation",
+      "GD&T",
+    ],
     sections: [
       {
-        title: "Sized in FEA, then welded into place",
+        title: "Sized in FEA to a factor of three",
         body:
           "Static stress analysis under the full roof load sized every " +
-          "member; the frame was then cut, welded and machined on site " +
-          "with the fabrication team.",
+          "member of the truss, against a design target of a minimum " +
+          "safety factor of 3 with peak displacement held under 20 mm — " +
+          "the two limits that set the member sections and joint layout.",
         image: "assets/img/poultry-truss-cad.jpg",
+      },
+      {
+        title: "Fabrication overseen on the floor",
+        body:
+          "Production was supervised through to the finished frame: " +
+          "non-destructive testing on the welds, quality inspections at " +
+          "each stage, and dimensional checks confirming the fabricated " +
+          "truss matched the design specification rather than assuming it.",
+        image: null,
+      },
+      {
+        title: "Processes and material decisions",
+        body:
+          "The work spanned precision cutting, welding, machining and " +
+          "post-processing, with material research and thermal simulation " +
+          "feeding into how sections were specified and how the heat of " +
+          "welding was accounted for.",
+        image: null,
       },
     ],
   },
@@ -360,6 +390,7 @@ const ALL_PROJECTS = [
     video: "assets/video/racking-machine.mp4",
     model: "assets/models/Racking-Machine.glb", // Draco-compressed 2.88MB -> 213KB
     cameraOrbit: "35deg 74deg 80%",
+    exposure: 0.54, // 25% below the 0.72 default — the model read too bright
     hero:
       "A hand-pushed floor-raking machine for poultry sheds — a spinning " +
       "rear rotavator breaks up caked litter, built cheap enough for a " +
@@ -558,6 +589,76 @@ const ALL_PROJECTS = [
   },
 
   {
+    id: "electrical-wiring",
+    title: "Electrical & Wiring",
+    tagline: "Block-structured control electronics taken from schematic to a soldered perfboard",
+    category: "Electronics / Control Hardware",
+    // The schematic includes a Raspberry Pi 5 (released late 2023), so the
+    // build is 2024 or later.
+    year: "2025", // TODO: confirm
+    aboutLabel: "Electronics architecture", // replaces the default "About the project"
+    accent: "#b07cff", // violet — sits between two warm-orange cards in the carousel
+    poster: "assets/img/electronics-cover.jpg",
+    // Card loop: schematic -> perfboard layout drawing -> soldered board ->
+    // the board wired into the machine. Ends on the machine, so the cover
+    // dissolve (posterHold) closes the loop.
+    video: "assets/video/electronics.mp4",
+    posterHold: 800,
+    // No 3D model: the viewer column replays the build sequence itself.
+    viewerCap: "schematic · perfboard plan · soldered board · wired machine",
+    hero:
+      "Control electronics designed as functional blocks — power input and " +
+      "distribution, motor drivers, linear actuator drive, sensors and " +
+      "microcontroller interfaces — then committed to a soldered perfboard " +
+      "through a layout drawn hole for hole before the first joint was made.",
+    specs: [
+      { label: "Schematic", value: "Cirkit Designer IDE" },
+      { label: "Block structure", value: "Power · drivers · sensing · MCU" },
+      { label: "Layout", value: "Hole-mapped perfboard plan" },
+      { label: "Protection", value: "Fused rails · connectorised branches" },
+      { label: "Verification", value: "Continuity checked before power-up" },
+    ],
+    tags: [
+      "Cirkit Designer",
+      "Perfboard",
+      "Soldering",
+      "Motor Drivers",
+      "Power Distribution",
+      "Continuity Testing",
+    ],
+    sections: [
+      {
+        title: "Circuits structured as functional blocks",
+        body:
+          "The schematic is partitioned into power input and distribution, " +
+          "motor drivers, the linear actuator driver, and sensor and " +
+          "microcontroller interfaces — so each stage can be reasoned about, " +
+          "fused and debugged on its own rather than as one flat net list.",
+        image: "assets/img/electronics-schematic.jpg",
+      },
+      {
+        title: "The board drawn hole by hole, before soldering",
+        body:
+          "Every solder point and wire run was mapped onto a grid mirroring " +
+          "the physical board, resolving component placement, jumper " +
+          "crossings and rail routing on paper first. Soldering then " +
+          "followed a plan instead of improvising.",
+        image: "assets/img/electronics-layout.jpg",
+      },
+      {
+        title: "Joints made to hold, then verified",
+        body:
+          "Flux and a clean tip, pad and lead heated evenly, solder fed into " +
+          "the joint rather than onto the iron — then continuity checked " +
+          "across the board with a multimeter before any supply was " +
+          "connected. Against breadboarding, the planned perfboard was both " +
+          "quicker to build and far harder to knock out of contact.",
+        image: "assets/img/electronics-perfboard.jpg",
+      },
+    ],
+  },
+
+  {
     id: "traction-motor",
     hidden: true, // no real render yet — stored for later, not shown in the carousel
     title: "E-Traction Motor",
@@ -698,6 +799,7 @@ const CARD_ORDER = [
   "robotic-arm",     // Cooka — A SCARA Robot
   "teleop",          // Teleop — ROS 2 + Gazebo
   "robot-hand",      // Anthropomorphic hand
+  "electrical-wiring", // Electrical & Wiring
   "excavator",
   "poultry-farm",
   "scara-v1",
@@ -751,7 +853,7 @@ const TIMELINE = [
     org: "ISOLogic Automation, Tiruppur",
     kind: "work",
     note:
-      "Designed and manufactured a 41-ft Pratt truss for a 40,000 sq-ft " +
+      "Designed and manufactured a 43-ft Pratt truss for a 40,000 sq-ft " +
       "industrial shed — cutting, welding, machining, post-processing.",
   },
   {
